@@ -1,0 +1,16 @@
+{
+  "name": "zxing-demo",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "configure": "emcmake cmake -H. -Bbuild -DCMAKE_BUILD_TYPE=Release -G \"MinGW Makefiles\" -DCMAKE_MAKE_PROGRAM=make -DBUILD_SHARED_LIBS=OFF",
+    "build": "cmake --build build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@tybys/emnapi": "^0.6.1"
+  }
+}
