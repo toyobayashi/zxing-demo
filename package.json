@@ -4,13 +4,14 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "configure": "emcmake cmake -H. -Bbuild -DCMAKE_BUILD_TYPE=Release -G \"MinGW Makefiles\" -DCMAKE_MAKE_PROGRAM=make -DBUILD_SHARED_LIBS=OFF",
+    "configure:win": "emcmake cmake -DCMAKE_BUILD_TYPE=Release -G \"MinGW Makefiles\" -DCMAKE_MAKE_PROGRAM=make -DBUILD_SHARED_LIBS=OFF -H. -Bbuild",
+    "configure": "emcmake cmake -DCMAKE_BUILD_TYPE=Release -G \"Unix Makefiles\" -DCMAKE_MAKE_PROGRAM=make -DBUILD_SHARED_LIBS=OFF -H. -Bbuild",
     "build": "cmake --build build"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@tybys/emnapi": "^0.6.1"
+    "@tybys/emnapi": "^0.7.0"
   }
 }

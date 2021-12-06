@@ -1,5 +1,4 @@
 #include <cstring>
-#include <cstdlib>
 #include <string>
 #include "napi.h"
 #include "ReadBarcode.h"
@@ -110,11 +109,15 @@ Napi::Value JsReadBarcodeFromImage(const Napi::CallbackInfo& info) {
 }
 
 struct WriteResult {
-  uint8_t* buffer;
+  const ZXing::Matrix<uint8_t>* matrix;
+  const uint8_t* buffer;
   int length;
   std::string error;
-  WriteResult(uint8_t* b, int l, std::string err):
-    buffer(b), length(l), error(std::move(err)) {}
+  WriteResult(const ZXing::Matrix<uint8_t>* m,
+              const uint8_t* b,
+              int l,
+              std::string err):
+    matrix(m), buffer(b), length(l), error(std::move(err)) {}
 };
 
 WriteResult GenerateBarcode(std::wstring text,
@@ -132,7 +135,7 @@ WriteResult GenerateBarcode(std::wstring text,
   try {
     auto barcodeFormat = BarcodeFormatFromString(format);
     if (barcodeFormat == BarcodeFormat::None)
-      return WriteResult(nullptr, 0, "Unsupported format: " + format);
+      return WriteResult(nullptr, nullptr, 0, "Unsupported format: " + format);
 
     MultiFormatWriter writer(barcodeFormat);
     if (margin >= 0)
@@ -146,16 +149,14 @@ WriteResult GenerateBarcode(std::wstring text,
     if (eccLevel >= 0 && eccLevel <= 8)
       writer.setEccLevel(eccLevel);
 
-    ZXing::Matrix<uint8_t> buffer =
-      ToMatrix<uint8_t>(writer.encode(text, width, height));
-    uint8_t* buf = static_cast<uint8_t*>(::malloc(buffer.size()));
-    ::memcpy(buf, buffer.data(), buffer.size());
+    ZXing::Matrix<uint8_t>* buffer = new ZXing::Matrix<uint8_t>(
+      ToMatrix<uint8_t>(writer.encode(text, width, height)));
 
-    return WriteResult(buf, buffer.size(), "");
+    return WriteResult(buffer, buffer->data(), buffer->size(), "");
   } catch (const std::exception& e) {
-    return WriteResult(nullptr, 0, e.what());
+    return WriteResult(nullptr, nullptr, 0, e.what());
   } catch (...) {
-    return WriteResult(nullptr, 0, "Unknown error");
+    return WriteResult(nullptr, nullptr, 0, "Unknown error");
   }
 }
 
@@ -184,6 +185,8 @@ Napi::Value JsGenerateBarcode(const Napi::CallbackInfo& info) {
                                        eccLevel);
 
   Napi::Object js_result = Napi::Object::New(env);
+  js_result["matrix"] = Napi::Number::New(env,
+    reinterpret_cast<int32_t>(result.matrix));
   js_result["buffer"] = Napi::Number::New(env,
     reinterpret_cast<int32_t>(result.buffer));
   js_result["length"] = Napi::Number::New(env, result.length);
@@ -192,8 +195,10 @@ Napi::Value JsGenerateBarcode(const Napi::CallbackInfo& info) {
   return js_result;
 }
 
-Napi::Value ReleaseImage(const Napi::CallbackInfo& info) {
-  ::free(reinterpret_cast<uint8_t*>(info[0].As<Napi::Number>().Uint32Value()));
+Napi::Value ReleaseMatrix(const Napi::CallbackInfo& info) {
+  auto p = reinterpret_cast<ZXing::Matrix<uint8_t>*>(
+    info[0].As<Napi::Number>().Uint32Value());
+  if (p != nullptr) delete p;
   return info.Env().Undefined();
 }
 
@@ -206,8 +211,8 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     zxingwasm::JsReadBarcodeFromImage, "readBarcodeFromImage");
   exports["generateBarcode"] = Napi::Function::New(env,
     zxingwasm::JsGenerateBarcode, "generateBarcode");
-  exports["releaseImage"] = Napi::Function::New(env,
-    zxingwasm::ReleaseImage, "releaseImage");
+  exports["releaseMatrix"] = Napi::Function::New(env,
+    zxingwasm::ReleaseMatrix, "releaseMatrix");
   return exports;
 }
 

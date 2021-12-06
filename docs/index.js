@@ -147,17 +147,17 @@ class App {
         imageData.data.set([buffer[i], buffer[i], buffer[i], 255], i * 4)
       }
       ctx.putImageData(imageData, 0, 0)
-      Module.emnapiExports.releaseImage(result.buffer)
       console.log(result)
+      Module.emnapiExports.releaseMatrix(result.matrix)
     })
 
     container.appendChild(this.domNode)
   }
 
   scanImage (file) {
-    var reader = new FileReader();
+    var reader = new FileReader()
     reader.onloadend = (evt) => {
-      var format = 'QRCode';
+      var format = 'QRCode'
 
       this.getImage(evt.target.result, file.type).then(img => {
         this.showImage(img)
@@ -167,16 +167,16 @@ class App {
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
         const data = imageData.data
 
-        var buffer = Module._malloc(data.length);
-        Module.HEAPU8.set(data, buffer);
-        var result = Module.emnapiExports.readBarcodeFromImage(buffer, data.length, img.width, img.height, true, format);
-        Module._free(buffer);
+        var buffer = Module._malloc(data.length)
+        Module.HEAPU8.set(data, buffer)
+        var result = Module.emnapiExports.readBarcodeFromImage(buffer, data.length, img.width, img.height, true, format)
+        Module._free(buffer)
 
         console.log(result)
 
         if (!result.error) {
           this.showPosition(result.position)
-          this.showScanResult(result);
+          this.showScanResult(result)
         }
       })
     }
@@ -185,17 +185,17 @@ class App {
 
   getImage (dataUrl, fileType) {
     return new Promise((resolve, reject) => {
-      fileType = fileType || "image/jpeg";
-      var img = document.createElement("img");
+      fileType = fileType || "image/jpeg"
+      var img = document.createElement("img")
       img.onload = function() {
         img.onload = null
         img.onerror = null
         resolve(img)
-      };
+      }
       img.onerror = function () {
         img.onload = null
         img.onerror = null
-        reject(new Error('123'))
+        reject(new Error('img load failed'))
       }
       img.src = dataUrl
     })
@@ -203,31 +203,31 @@ class App {
 
   showImage (img) {
     const canvas = this._canvasEl.canvas
-    canvas.width = img.width;
-    canvas.height = img.height;
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(img, 0, 0);
+    canvas.width = img.width
+    canvas.height = img.height
+    const ctx = canvas.getContext("2d")
+    ctx.drawImage(img, 0, 0)
   }
 
   showPosition (position) {
     const canvas = this._canvasEl.canvas
     const ctx = canvas.getContext("2d")
-    ctx.beginPath();
-    ctx.moveTo(position.topLeft.x, position.topLeft.y);
-    ctx.lineTo(position.topRight.x, position.topRight.y);
-    ctx.lineTo(position.bottomRight.x, position.bottomRight.y);
-    ctx.lineTo(position.bottomLeft.x, position.bottomLeft.y);
-    ctx.closePath();
-    ctx.strokeStyle = "red";
-    ctx.lineWidth = 3;
-    ctx.stroke();
+    ctx.beginPath()
+    ctx.moveTo(position.topLeft.x, position.topLeft.y)
+    ctx.lineTo(position.topRight.x, position.topRight.y)
+    ctx.lineTo(position.bottomRight.x, position.bottomRight.y)
+    ctx.lineTo(position.bottomLeft.x, position.bottomLeft.y)
+    ctx.closePath()
+    ctx.strokeStyle = "red"
+    ctx.lineWidth = 3
+    ctx.stroke()
   }
 
   showScanResult (result) {
     if (result.error) {
-      this._resultEl.domNode.innerHTML = '<font color="red">Error: ' + result.error + '</font>';
+      this._resultEl.domNode.innerHTML = '<font color="red">Error: ' + result.error + '</font>'
     } else if (result.format) {
-      this._resultEl.domNode.innerHTML = "Format: <strong>" + result.format + "</strong><pre>" + result.text + "</pre>";
+      this._resultEl.domNode.innerHTML = "Format: <strong>" + result.format + "</strong><pre>" + result.text + "</pre>"
     } else {
       this._resultEl.domNode.innerHTML = "No QRCode found"
     }
