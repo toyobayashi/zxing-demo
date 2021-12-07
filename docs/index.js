@@ -139,7 +139,8 @@ class App {
         window.alert(result.error)
         return
       }
-      const buffer = new Uint8Array(Module.HEAPU8.buffer, result.buffer, result.length)
+      // const buffer = new Uint8Array(Module.HEAPU8.buffer, result.buffer, result.length)
+      const buffer = Module.emnapiExports.getUint8Array(result.buffer, result.length)
       const ctx = canvas.getContext('2d')
       const imageData = ctx.createImageData(canvas.width, canvas.height)
       const pixelSize = canvas.width * canvas.height
@@ -169,15 +170,16 @@ class App {
 
         var buffer = Module._malloc(data.length)
         Module.HEAPU8.set(data, buffer)
-        var result = Module.emnapiExports.readBarcodeFromImage(buffer, data.length, img.width, img.height, true, format)
+        const u8arr = new Uint8Array(Module.HEAPU8.buffer, buffer, data.length)
+        var result = Module.emnapiExports.readBarcodeFromImage(u8arr, img.width, img.height, true, format)
         Module._free(buffer)
 
         console.log(result)
 
-        if (!result.error) {
+        if (result.position) {
           this.showPosition(result.position)
-          this.showScanResult(result)
         }
+        this.showScanResult(result)
       })
     }
     reader.readAsDataURL(file)

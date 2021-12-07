@@ -1,5 +1,8 @@
 #include <cstring>
 #include <string>
+#ifdef __EMSCRIPTEN__
+#include "emnapi.h"
+#endif
 #include "napi.h"
 #include "ReadBarcode.h"
 
@@ -17,8 +20,7 @@ struct ReadResult {
   ZXing::Position position;
 };
 
-ReadResult ReadBarcodeFromImage(int buffer_ptr,
-                                int buffer_length,
+ReadResult ReadBarcodeFromImage(const uint8_t* buffer_ptr,
                                 int width,
                                 int height,
                                 bool tryHarder,
@@ -38,8 +40,7 @@ ReadResult ReadBarcodeFromImage(int buffer_ptr,
 
     int channels;
 
-    ImageView view(reinterpret_cast<const uint8_t*>(buffer_ptr),
-                   width, height, ImageFormat::RGBX);
+    ImageView view(buffer_ptr, width, height, ImageFormat::RGBX);
     auto result = ReadBarcode(view, hints);
     if (result.isValid()) {
       return {
@@ -61,14 +62,13 @@ ReadResult ReadBarcodeFromImage(int buffer_ptr,
 
 Napi::Value JsReadBarcodeFromImage(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  int buffer_ptr = info[0].As<Napi::Number>().Uint32Value();
-  int buffer_length = info[1].As<Napi::Number>().Uint32Value();
-  int width = info[2].As<Napi::Number>().Uint32Value();
-  int height = info[3].As<Napi::Number>().Uint32Value();
-  bool tryHarder = info[4].As<Napi::Boolean>().Value();
-  std::string format = info[5].As<Napi::String>().Utf8Value();
+  Napi::Uint8Array u8arr = info[0].As<Napi::Uint8Array>();
+  int width = info[1].As<Napi::Number>().Uint32Value();
+  int height = info[2].As<Napi::Number>().Uint32Value();
+  bool tryHarder = info[3].As<Napi::Boolean>().Value();
+  std::string format = info[4].As<Napi::String>().Utf8Value();
 
-  ReadResult result = ReadBarcodeFromImage(buffer_ptr, buffer_length,
+  ReadResult result = ReadBarcodeFromImage(u8arr.Data(),
     width, height, tryHarder, format);
 
   std::u16string text;
@@ -82,28 +82,32 @@ Napi::Value JsReadBarcodeFromImage(const Napi::CallbackInfo& info) {
   js_result["text"] = Napi::String::New(env, text);
   js_result["error"] = Napi::String::New(env, result.error);
 
-  Napi::Object js_position = Napi::Object::New(env);
-  Napi::Object js_top_left = Napi::Object::New(env);
-  js_top_left["x"] = result.position[0].x;
-  js_top_left["y"] = result.position[0].y;
-  js_position["topLeft"] = js_top_left;
+  if (result.error.empty() && !result.format.empty()) {
+    Napi::Object js_position = Napi::Object::New(env);
+    Napi::Object js_top_left = Napi::Object::New(env);
+    js_top_left["x"] = result.position[0].x;
+    js_top_left["y"] = result.position[0].y;
+    js_position["topLeft"] = js_top_left;
 
-  Napi::Object js_top_right = Napi::Object::New(env);
-  js_top_right["x"] = result.position[1].x;
-  js_top_right["y"] = result.position[1].y;
-  js_position["topRight"] = js_top_right;
+    Napi::Object js_top_right = Napi::Object::New(env);
+    js_top_right["x"] = result.position[1].x;
+    js_top_right["y"] = result.position[1].y;
+    js_position["topRight"] = js_top_right;
 
-  Napi::Object js_bottom_right = Napi::Object::New(env);
-  js_bottom_right["x"] = result.position[2].x;
-  js_bottom_right["y"] = result.position[2].y;
-  js_position["bottomRight"] = js_bottom_right;
+    Napi::Object js_bottom_right = Napi::Object::New(env);
+    js_bottom_right["x"] = result.position[2].x;
+    js_bottom_right["y"] = result.position[2].y;
+    js_position["bottomRight"] = js_bottom_right;
 
-  Napi::Object js_bottom_left = Napi::Object::New(env);
-  js_bottom_left["x"] = result.position[3].x;
-  js_bottom_left["y"] = result.position[3].y;
-  js_position["bottomLeft"] = js_bottom_left;
+    Napi::Object js_bottom_left = Napi::Object::New(env);
+    js_bottom_left["x"] = result.position[3].x;
+    js_bottom_left["y"] = result.position[3].y;
+    js_position["bottomLeft"] = js_bottom_left;
 
-  js_result["position"] = js_position;
+    js_result["position"] = js_position;
+  } else {
+    js_result["position"] = env.Null();
+  }
 
   return js_result;
 }
@@ -202,6 +206,28 @@ Napi::Value ReleaseMatrix(const Napi::CallbackInfo& info) {
   return info.Env().Undefined();
 }
 
+Napi::Value GetUint8Array(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+#ifdef __EMSCRIPTEN__
+  napi_value b;
+  napi_status r = emnapi_create_external_uint8array(env,
+    reinterpret_cast<void*>(info[0].As<Napi::Number>().Uint32Value()),
+    info[1].As<Napi::Number>().Uint32Value(), nullptr, nullptr, &b);
+  if (r != napi_ok) {
+    Napi::Error err = env.GetAndClearPendingException();
+    err.ThrowAsJavaScriptException();
+    return Napi::Value();
+  }
+  return Napi::Value(env, b);
+#else
+  size_t len = info[1].As<Napi::Number>().Uint32Value();
+  Napi::ArrayBuffer ab = Napi::ArrayBuffer::New(env,
+    reinterpret_cast<void*>(info[0].As<Napi::Number>().Uint32Value()),
+    len);
+  return Napi::Uint8Array::New(env, len, ab, 0, napi_uint8_array);
+#endif
+}
+
 }  // namespace zxingwasm
 
 namespace {
@@ -211,6 +237,8 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     zxingwasm::JsReadBarcodeFromImage, "readBarcodeFromImage");
   exports["generateBarcode"] = Napi::Function::New(env,
     zxingwasm::JsGenerateBarcode, "generateBarcode");
+  exports["getUint8Array"] = Napi::Function::New(env,
+    zxingwasm::GetUint8Array, "getUint8Array");
   exports["releaseMatrix"] = Napi::Function::New(env,
     zxingwasm::ReleaseMatrix, "releaseMatrix");
   return exports;
