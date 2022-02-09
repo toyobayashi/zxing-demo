@@ -22,6 +22,7 @@ set_target_properties(zxingwasm
 target_link_options(zxingwasm PRIVATE
   "-sDISABLE_EXCEPTION_CATCHING=0"
   "-sALLOW_MEMORY_GROWTH=1"
+  "-sMIN_CHROME_VERSION=48"
 )
 
-target_link_libraries(zxingwasm ZXing emnapi)
+target_link_libraries(zxingwasm ZXing emnapi_noruntime)

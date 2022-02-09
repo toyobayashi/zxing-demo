@@ -12,7 +12,8 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@tybys/emnapi": "^0.7.0",
-    "node-addon-api": "^4.2.0"
+    "@tybys/emnapi": "0.10.2",
+    "@tybys/emnapi-runtime": "0.10.2",
+    "node-addon-api": "4.3.0"
   }
 }
