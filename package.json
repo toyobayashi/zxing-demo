@@ -6,7 +6,7 @@
   "scripts": {
     "configure:win": "emcmake cmake -DCMAKE_BUILD_TYPE=Release -G \"MinGW Makefiles\" -DCMAKE_MAKE_PROGRAM=make -DBUILD_SHARED_LIBS=OFF -H. -Bbuild",
     "configure": "emcmake cmake -DCMAKE_BUILD_TYPE=Release -G \"Unix Makefiles\" -DCMAKE_MAKE_PROGRAM=make -DBUILD_SHARED_LIBS=OFF -H. -Bbuild",
-    "build": "cmake --build build"
+    "build": "cmake --build build && node ./script/copy.js"
   },
   "keywords": [],
   "author": "",
@@ -14,6 +14,7 @@
   "devDependencies": {
     "@tybys/emnapi": "0.10.2",
     "@tybys/emnapi-runtime": "0.10.2",
+    "@tybys/emwrap": "^2.1.1",
     "node-addon-api": "4.3.0"
   }
 }

@@ -13,6 +13,7 @@ add_subdirectory("node_modules/@tybys/emnapi")
 
 add_executable(zxingwasm
   "src/binding.cpp"
+  "src/Matrix.cpp"
 )
 
 set_target_properties(zxingwasm
@@ -23,6 +24,10 @@ target_link_options(zxingwasm PRIVATE
   "-sDISABLE_EXCEPTION_CATCHING=0"
   "-sALLOW_MEMORY_GROWTH=1"
   "-sMIN_CHROME_VERSION=48"
+)
+
+add_custom_command(TARGET zxingwasm POST_BUILD
+  COMMAND npx emwrap "--name=zxingwasm" "$<TARGET_FILE:zxingwasm>"
 )
 
 target_link_libraries(zxingwasm ZXing emnapi_noruntime)

@@ -1,3 +1,7 @@
+/// <reference path="zxingwasm.d.ts" />
+
+const modulePromise = zxingwasm.default()
+
 class FileInput {
   constructor (container) {
     this._handler = []
@@ -127,20 +131,26 @@ class App {
 
     this._InputEl.onDidChange((files) => {
       const f = files[0]
-      if (f.name.endsWith('.png') || f.name.endsWith('.jpeg') || f.name.endsWith('.jpg')) {
+      if (f && (f.name.endsWith('.png') || f.name.endsWith('.jpeg') || f.name.endsWith('.jpg'))) {
         this.scanImage(f)
       }
     })
 
-    this._genButton.onDidClick(() => {
+    this._genButton.onDidClick(async () => {
+      const { Module } = await modulePromise
       const canvas = this._resultCanvas.canvas
-      const result = Module.emnapiExports.generateBarcode(this._textInput._input.value, 'QRCode', 'UTF-8', 10, canvas.width, canvas.height, -1)
-      if (result.error) {
-        window.alert(result.error)
+      let matrix
+      try {
+        matrix = Module.emnapiExports.generateBarcode(this._textInput._input.value, 'QRCode', 'UTF-8', 10, canvas.width, canvas.height, -1)
+      } catch (err) {
+        console.error(err)
+        window.alert(err.message)
         return
       }
-      // const buffer = new Uint8Array(Module.HEAPU8.buffer, result.buffer, result.length)
-      const buffer = Module.emnapiExports.getUint8Array(result.buffer, result.length)
+      const dataPtr = matrix.getDataAddress()
+      const dataSize = matrix.getDataSize()
+      console.log(dataPtr, dataSize)
+      const buffer = new Uint8Array(Module.HEAPU8.buffer, dataPtr, dataSize)
       const ctx = canvas.getContext('2d')
       const imageData = ctx.createImageData(canvas.width, canvas.height)
       const pixelSize = canvas.width * canvas.height
@@ -148,8 +158,7 @@ class App {
         imageData.data.set([buffer[i], buffer[i], buffer[i], 255], i * 4)
       }
       ctx.putImageData(imageData, 0, 0)
-      console.log(result)
-      Module.emnapiExports.releaseMatrix(result.matrix)
+      matrix.destroy()
     })
 
     container.appendChild(this.domNode)
@@ -160,7 +169,8 @@ class App {
     reader.onloadend = (evt) => {
       var format = 'QRCode'
 
-      this.getImage(evt.target.result, file.type).then(img => {
+      this.getImage(evt.target.result, file.type).then(async img => {
+        const { Module } = await modulePromise
         this.showImage(img)
         /** @type {HTMLCanvasElement} */
         const canvas = this._canvasEl.canvas
@@ -212,13 +222,14 @@ class App {
   }
 
   showPosition (position) {
+    const [topLeft, topRight, bottomRight, bottomLeft] = position
     const canvas = this._canvasEl.canvas
     const ctx = canvas.getContext("2d")
     ctx.beginPath()
-    ctx.moveTo(position.topLeft.x, position.topLeft.y)
-    ctx.lineTo(position.topRight.x, position.topRight.y)
-    ctx.lineTo(position.bottomRight.x, position.bottomRight.y)
-    ctx.lineTo(position.bottomLeft.x, position.bottomLeft.y)
+    ctx.moveTo(topLeft.x, topLeft.y)
+    ctx.lineTo(topRight.x, topRight.y)
+    ctx.lineTo(bottomRight.x, bottomRight.y)
+    ctx.lineTo(bottomLeft.x, bottomLeft.y)
     ctx.closePath()
     ctx.strokeStyle = "red"
     ctx.lineWidth = 3
