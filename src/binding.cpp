@@ -52,7 +52,7 @@ inline Napi::Value ConvertResultToObject(Napi::Env env,
   return js_result;
 }
 
-Napi::Value JsReadBarcodeFromImage(const Napi::CallbackInfo& info) {
+Napi::Value JsReadFromRawImage(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   Napi::Uint8Array u8arr = info[0].As<Napi::Uint8Array>();
   int width = info[1].As<Napi::Number>().Uint32Value();
@@ -86,7 +86,7 @@ Napi::Value JsReadBarcodeFromImage(const Napi::CallbackInfo& info) {
   return Napi::Value();
 }
 
-Napi::Value JsGenerateBarcode(const Napi::CallbackInfo& info) {
+Napi::Value JsGenerateMatrix(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   std::string text = info[0].As<Napi::String>().Utf8Value();
   std::string format = info[1].As<Napi::String>().Utf8Value();
@@ -146,10 +146,10 @@ namespace {
 
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
   zxingwasm::Matrix::Init(env);
-  exports["readBarcodeFromImage"] = Napi::Function::New(env,
-    zxingwasm::JsReadBarcodeFromImage, "readBarcodeFromImage");
-  exports["generateBarcode"] = Napi::Function::New(env,
-    zxingwasm::JsGenerateBarcode, "generateBarcode");
+  exports["readFromRawImage"] = Napi::Function::New(env,
+    zxingwasm::JsReadFromRawImage, "readFromRawImage");
+  exports["generateMatrix"] = Napi::Function::New(env,
+    zxingwasm::JsGenerateMatrix, "generateMatrix");
   return exports;
 }
 

@@ -141,7 +141,7 @@ class App {
       const canvas = this._resultCanvas.canvas
       let matrix
       try {
-        matrix = Module.emnapiExports.generateBarcode(this._textInput._input.value, 'QRCode', 'UTF-8', 10, canvas.width, canvas.height, -1)
+        matrix = Module.emnapiExports.generateMatrix(this._textInput._input.value, 'QRCode', 'UTF-8', 10, canvas.width, canvas.height, -1)
       } catch (err) {
         console.error(err)
         window.alert(err.message)
@@ -149,7 +149,7 @@ class App {
       }
       const dataPtr = matrix.getDataAddress()
       const dataSize = matrix.getDataSize()
-      console.log(dataPtr, dataSize)
+      console.log(matrix.getWidth(), matrix.getHeight(), dataPtr, dataSize)
       const buffer = new Uint8Array(Module.HEAPU8.buffer, dataPtr, dataSize)
       const ctx = canvas.getContext('2d')
       const imageData = ctx.createImageData(canvas.width, canvas.height)
@@ -164,41 +164,56 @@ class App {
     container.appendChild(this.domNode)
   }
 
-  scanImage (file) {
-    var reader = new FileReader()
-    reader.onloadend = (evt) => {
-      var format = 'QRCode'
+  readFileAsDataURL (file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = (event) => {
+        resolve(event.target.result)
+      }
+      reader.onerror = () => {
+        reject(new Error('Read file failed: ' + file.name))
+      }
+      reader.readAsDataURL(file)
+    })
+  }
 
-      this.getImage(evt.target.result, file.type).then(async img => {
-        const { Module } = await modulePromise
-        this.showImage(img)
-        /** @type {HTMLCanvasElement} */
-        const canvas = this._canvasEl.canvas
-        const ctx = canvas.getContext("2d")
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-        const data = imageData.data
+  async scanImage (file) {
+    const dataUrl = await this.readFileAsDataURL(file)
+    const img = await this.getImage(dataUrl, file.type)
+    const { Module } = await modulePromise
+    this.showImage(img)
+    /** @type {HTMLCanvasElement} */
+    const canvas = this._canvasEl.canvas
+    const ctx = canvas.getContext("2d")
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    const data = imageData.data
 
-        var buffer = Module._malloc(data.length)
-        Module.HEAPU8.set(data, buffer)
-        const u8arr = new Uint8Array(Module.HEAPU8.buffer, buffer, data.length)
-        var result = Module.emnapiExports.readBarcodeFromImage(u8arr, img.width, img.height, true, format)
-        Module._free(buffer)
-
-        console.log(result)
-
-        if (result.position) {
-          this.showPosition(result.position)
-        }
-        this.showScanResult(result)
-      })
+    const buffer = Module._malloc(data.length)
+    Module.HEAPU8.set(data, buffer)
+    const u8arr = new Uint8Array(Module.HEAPU8.buffer, buffer, data.length)
+    let result
+    try {
+      result = Module.emnapiExports.readFromRawImage(u8arr, img.width, img.height, true, 'QRCode')
+    } catch (err) {
+      console.error(err)
+      window.alert(err.message)
+      Module._free(buffer)
+      return
     }
-    reader.readAsDataURL(file)
+    Module._free(buffer)
+
+    console.log(JSON.stringify(result, null, 2))
+
+    if (result.position) {
+      this.showPosition(result.position)
+    }
+    this.showScanResult(result)
   }
 
   getImage (dataUrl, fileType) {
     return new Promise((resolve, reject) => {
       fileType = fileType || "image/jpeg"
-      var img = document.createElement("img")
+      const img = document.createElement("img")
       img.onload = function() {
         img.onload = null
         img.onerror = null

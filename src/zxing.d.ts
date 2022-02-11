@@ -33,12 +33,14 @@ export declare interface ReadResult {
   position: Position | null
 }
 
-export declare function readBarcodeFromImage (
+export declare function readFromRawImage (
+  /** [r, g, b, a, ...], [0-255] */
   imageData: Uint8Array,
   width: number,
   height: number,
   tryHarder: boolean,
-  format: Format
+  /** `${Format}|${Format}|...` */
+  format: string
 ): ReadResult
 
 export declare type Charset = 
@@ -111,7 +113,7 @@ export declare interface Matrix {
   getBuffer?: () => Uint8Array
 }
 
-export declare function generateBarcode (
+export declare function generateMatrix (
   text: string,
   format: Format,
   encoding: Charset,

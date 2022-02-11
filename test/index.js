@@ -3,8 +3,8 @@ const Jimp = require('jimp')
 const assert = require('assert')
 
 const {
-  readBarcodeFromImage,
-  generateBarcode
+  readFromRawImage,
+  generateMatrix
 } = require('./zxing')
 
 function createImage (data, width, height) {
@@ -32,7 +32,7 @@ async function main () {
 
   const input = '扫码发大财'
 
-  const matrix = generateBarcode(input, format, encoding, margin, width, height, eccLevel)
+  const matrix = generateMatrix(input, format, encoding, margin, width, height, eccLevel)
   const image = await createImage(matrix.getBuffer(), matrix.getWidth(), matrix.getHeight())
   matrix.destroy()
   const pngFile = path.join(__dirname, 'test.png')
@@ -40,7 +40,7 @@ async function main () {
 
   const readImage = await Jimp.read(pngFile)
   const imageData = new Uint8Array(readImage.bitmap.data.buffer)
-  const result = readBarcodeFromImage(imageData, readImage.bitmap.width, readImage.bitmap.height, true, 'QRCode')
+  const result = readFromRawImage(imageData, readImage.bitmap.width, readImage.bitmap.height, true, 'QRCode')
   if (result.error) {
     throw new Error(result.error)
   }
