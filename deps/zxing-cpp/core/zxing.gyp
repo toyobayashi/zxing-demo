@@ -23,7 +23,8 @@
     },
     'msvs_settings': {
       'VCCLCompilerTool': {
-        'AdditionalOptions': ['-std:c++17'],
+        'ExceptionHandling': 1,
+        'AdditionalOptions': ['-std:c++17', '/EHsc'],
       },
       'VCLinkerTool': {
         'GenerateDebugInformation': 'true',

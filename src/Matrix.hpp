@@ -2,7 +2,13 @@
 #define SRC_MATRIX_HPP_
 
 #include "napi.h"
-#include "BitMatrix.h"
+
+namespace ZXing {
+
+template <typename T>
+class Matrix;
+
+}
 
 namespace zxingwasm {
 

@@ -1,51 +1,47 @@
 #include <cstring>
 #include <string>
 
-#include "predef.h"
 #include "Matrix.hpp"
+#include "BitMatrix.h"
 #include "ReadBarcode.h"
-
+#include "TextUtfEncoding.h"
 #include "BarcodeFormat.h"
 #include "MultiFormatWriter.h"
 #include "CharacterSetECI.h"
 
 namespace zxingwasm {
 
-struct ReadResult {
-  std::string format;
-  std::wstring text;
-  std::string error;
-  ZXing::Position position;
-};
-
 inline Napi::Value ConvertResultToObject(Napi::Env env,
-                                         const ReadResult& result) {
+                                         const std::string& format,
+                                         const std::wstring& text,
+                                         const std::string& error,
+                                         const ZXing::Position& position) {
   Napi::Object js_result = Napi::Object::New(env);
-  js_result["format"] = Napi::String::New(env, result.format);
+  js_result["format"] = Napi::String::New(env, format);
   js_result["text"] = Napi::String::New(env,
-    std::u16string(result.text.begin(), result.text.end()));
-  js_result["error"] = Napi::String::New(env, result.error);
+    ZXing::TextUtfEncoding::ToUtf8(text));
+  js_result["error"] = Napi::String::New(env, error);
 
-  if (result.error.empty() && !result.format.empty()) {
+  if (error.empty() && !format.empty()) {
     Napi::Array js_position = Napi::Array::New(env, 4);
     Napi::Object js_top_left = Napi::Object::New(env);
-    js_top_left["x"] = result.position[0].x;
-    js_top_left["y"] = result.position[0].y;
+    js_top_left["x"] = position[0].x;
+    js_top_left["y"] = position[0].y;
     js_position[0U] = js_top_left;
 
     Napi::Object js_top_right = Napi::Object::New(env);
-    js_top_right["x"] = result.position[1].x;
-    js_top_right["y"] = result.position[1].y;
+    js_top_right["x"] = position[1].x;
+    js_top_right["y"] = position[1].y;
     js_position[1U] = js_top_right;
 
     Napi::Object js_bottom_right = Napi::Object::New(env);
-    js_bottom_right["x"] = result.position[2].x;
-    js_bottom_right["y"] = result.position[2].y;
+    js_bottom_right["x"] = position[2].x;
+    js_bottom_right["y"] = position[2].y;
     js_position[2U] = js_bottom_right;
 
     Napi::Object js_bottom_left = Napi::Object::New(env);
-    js_bottom_left["x"] = result.position[3].x;
-    js_bottom_left["y"] = result.position[3].y;
+    js_bottom_left["x"] = position[3].x;
+    js_bottom_left["y"] = position[3].y;
     js_position[3U] = js_bottom_left;
 
     js_result["position"] = js_position;
@@ -73,22 +69,26 @@ Napi::Value JsReadBarcodeFromImage(const Napi::CallbackInfo& info) {
     ZXing::ImageView view(u8arr.Data(),
       width, height, ZXing::ImageFormat::RGBX);
     ZXing::Result result = ZXing::ReadBarcode(view, hints);
-    return ConvertResultToObject(env, {
+    return ConvertResultToObject(env,
       ZXing::ToString(result.format()),
       result.text(),
       result.isValid() ? "" : ZXing::ToString(result.status()),
-      result.position()
-    });
+      result.position());
+  } catch (const Napi::Error& e) {
+    e.ThrowAsJavaScriptException();
   } catch (const std::exception& e) {
-    return ConvertResultToObject(env, { "", L"", e.what() });
+    Napi::Error::New(env, e.what())
+      .ThrowAsJavaScriptException();
   } catch (...) {
-    return ConvertResultToObject(env, { "", L"", "Unknown error" });
+    Napi::Error::New(env, "Unknown error")
+      .ThrowAsJavaScriptException();
   }
+  return Napi::Value();
 }
 
 Napi::Value JsGenerateBarcode(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  std::u16string text = info[0].As<Napi::String>().Utf16Value();
+  std::string text = info[0].As<Napi::String>().Utf8Value();
   std::string format = info[1].As<Napi::String>().Utf8Value();
   std::string encoding = info[2].As<Napi::String>().Utf8Value();
   int margin = info[3].As<Napi::Number>().Uint32Value();
@@ -118,12 +118,14 @@ Napi::Value JsGenerateBarcode(const Napi::CallbackInfo& info) {
 
     ZXing::Matrix<uint8_t>* buffer = new ZXing::Matrix<uint8_t>(
       ZXing::ToMatrix<uint8_t>(writer.encode(
-        std::wstring(text.begin(), text.end()), width, height)));
+        ZXing::TextUtfEncoding::FromUtf8(text), width, height)));
 
     Napi::FunctionReference* constructor =
       env.GetInstanceData<Napi::FunctionReference>();
+
     return constructor->New({
-      Napi::Number::New(env, reinterpret_cast<pointer_number_t>(buffer)) });
+      Napi::External<ZXing::Matrix<uint8_t>>::New(env, buffer)
+    });
   } catch (const Napi::Error& e) {
     e.ThrowAsJavaScriptException();
     return Napi::Value();

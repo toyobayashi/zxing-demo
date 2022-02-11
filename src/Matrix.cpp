@@ -1,5 +1,5 @@
-#include "predef.h"
 #include "Matrix.hpp"
+#include "BitMatrix.h"
 
 namespace zxingwasm {
 
@@ -26,19 +26,9 @@ void Matrix::Init(Napi::Env env) {
   env.SetInstanceData<Napi::FunctionReference>(constructor);
 }
 
-Matrix::Matrix(const Napi::CallbackInfo& info)
-  :Napi::ObjectWrap<Matrix>(info), value_(nullptr) {
-  Napi::Env env = info.Env();
-  Napi::Number value = info[0].As<Napi::Number>();
-
-#if defined(ARCHCPU32)
-  value_ = reinterpret_cast<ZXing::Matrix<uint8_t>*>(
-    value.Int32Value());
-#else
-  value_ = reinterpret_cast<ZXing::Matrix<uint8_t>*>(
-    value.Int64Value());
-#endif
-}
+Matrix::Matrix(const Napi::CallbackInfo& info):
+  Napi::ObjectWrap<Matrix>(info),
+  value_(info[0].As<Napi::External<ZXing::Matrix<uint8_t>>>().Data()) {}
 
 void Matrix::Finalize(Napi::Env env) {
   if (value_ != nullptr) {
@@ -60,7 +50,7 @@ Napi::Value Matrix::GetDataAddress(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   MATRIX_CHECK(env);
   return Napi::Number::New(env,
-    reinterpret_cast<pointer_number_t>(value_->data()));
+    reinterpret_cast<size_t>(value_->data()));
 }
 
 Napi::Value Matrix::GetDataSize(const Napi::CallbackInfo& info) {
