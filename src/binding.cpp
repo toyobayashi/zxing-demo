@@ -70,8 +70,6 @@ Napi::Value JsReadBarcodeFromImage(const Napi::CallbackInfo& info) {
     hints.setTryRotate(tryHarder);
     hints.setFormats(ZXing::BarcodeFormatsFromString(format));
 
-    int channels;
-
     ZXing::ImageView view(u8arr.Data(),
       width, height, ZXing::ImageFormat::RGBX);
     ZXing::Result result = ZXing::ReadBarcode(view, hints);

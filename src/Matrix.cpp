@@ -9,6 +9,10 @@ void Matrix::Init(Napi::Env env) {
       static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
     InstanceMethod<&Matrix::GetDataSize>("getDataSize",
       static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+    InstanceMethod<&Matrix::GetWidth>("getWidth",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+    InstanceMethod<&Matrix::GetHeight>("getHeight",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
 #ifndef __EMSCRIPTEN__
     InstanceMethod<&Matrix::GetBuffer>("getBuffer",
       static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
@@ -65,13 +69,25 @@ Napi::Value Matrix::GetDataSize(const Napi::CallbackInfo& info) {
   return Napi::Number::New(env, value_->size());
 }
 
+Napi::Value Matrix::GetWidth(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  MATRIX_CHECK(env);
+  return Napi::Number::New(env, value_->width());
+}
+
+Napi::Value Matrix::GetHeight(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  MATRIX_CHECK(env);
+  return Napi::Number::New(env, value_->height());
+}
+
 #ifndef __EMSCRIPTEN__
 Napi::Value Matrix::GetBuffer(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   MATRIX_CHECK(env);
   size_t len = value_->size();
   Napi::ArrayBuffer ab = Napi::ArrayBuffer::New(env,
-    value_->data(),
+    const_cast<uint8_t*>(value_->data()),
     len);
   return Napi::Uint8Array::New(env, len, ab, 0, napi_uint8_array);
 }

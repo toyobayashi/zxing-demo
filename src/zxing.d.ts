@@ -100,11 +100,13 @@ export declare type Charset =
   "EUC-KR" |
   "BINARY"
 
-export declare type EccLevel = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
+export declare type EccLevel = -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
 
 export declare interface Matrix {
   getDataAddress: () => number
   getDataSize: () => number
+  getWidth: () => number
+  getHeight: () => number
   destroy: () => void
   getBuffer?: () => Uint8Array
 }
