@@ -16,11 +16,11 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@tybys/emnapi": "0.10.2",
-    "@tybys/emnapi-runtime": "0.10.2",
-    "@tybys/emwrap": "^2.1.1",
-    "fs-extra": "^10.0.0",
+    "@tybys/emnapi": "0.13.0",
+    "@tybys/emnapi-runtime": "0.13.0",
+    "@tybys/emwrap": "^2.2.2",
+    "fs-extra": "^10.1.0",
     "jimp": "^0.16.1",
-    "node-addon-api": "4.3.0"
+    "node-addon-api": "5.0.0"
   }
 }
