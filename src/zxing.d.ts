@@ -110,7 +110,7 @@ export declare interface Matrix {
   getWidth: () => number
   getHeight: () => number
   destroy: () => void
-  getBuffer?: () => Uint8Array
+  getBuffer: () => Uint8Array
 }
 
 export declare function generateMatrix (

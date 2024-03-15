@@ -13,10 +13,8 @@ void Matrix::Init(Napi::Env env) {
       static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
     InstanceMethod<&Matrix::GetHeight>("getHeight",
       static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
-#ifndef __EMSCRIPTEN__
     InstanceMethod<&Matrix::GetBuffer>("getBuffer",
       static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
-#endif
     InstanceMethod<&Matrix::Destroy>("destroy",
       static_cast<napi_property_attributes>(napi_writable | napi_configurable))
   });
@@ -71,7 +69,6 @@ Napi::Value Matrix::GetHeight(const Napi::CallbackInfo& info) {
   return Napi::Number::New(env, value_->height());
 }
 
-#ifndef __EMSCRIPTEN__
 Napi::Value Matrix::GetBuffer(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   MATRIX_CHECK(env);
@@ -81,7 +78,6 @@ Napi::Value Matrix::GetBuffer(const Napi::CallbackInfo& info) {
     len);
   return Napi::Uint8Array::New(env, len, ab, 0, napi_uint8_array);
 }
-#endif
 
 Napi::Value Matrix::Destroy(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

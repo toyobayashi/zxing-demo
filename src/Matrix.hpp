@@ -24,9 +24,9 @@ class Matrix : public Napi::ObjectWrap<Matrix> {
   Napi::Value GetDataSize(const Napi::CallbackInfo& info);
   Napi::Value GetWidth(const Napi::CallbackInfo& info);
   Napi::Value GetHeight(const Napi::CallbackInfo& info);
-#ifndef __EMSCRIPTEN__
+
   Napi::Value GetBuffer(const Napi::CallbackInfo& info);
-#endif
+
   Napi::Value Destroy(const Napi::CallbackInfo& info);
 };
 

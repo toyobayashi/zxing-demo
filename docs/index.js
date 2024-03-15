@@ -1,6 +1,9 @@
 /// <reference path="zxingwasm.d.ts" />
 
-const modulePromise = zxingwasm.default()
+const modulePromise = zxingwasm().then(Module => {
+  Module.emnapiExports = Module.emnapiInit({ context: emnapi.getDefaultContext() })
+  return { Module }
+})
 
 class FileInput {
   constructor (container) {
@@ -150,6 +153,7 @@ class App {
       const dataPtr = matrix.getDataAddress()
       const dataSize = matrix.getDataSize()
       console.log(matrix.getWidth(), matrix.getHeight(), dataPtr, dataSize)
+      // const buffer = matrix.getBuffer()
       const buffer = new Uint8Array(Module.HEAPU8.buffer, dataPtr, dataSize)
       const ctx = canvas.getContext('2d')
       const imageData = ctx.createImageData(canvas.width, canvas.height)

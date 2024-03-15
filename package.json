@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "clean": "node ./script/clean.js",
-    "cmake:win": "emcmake cmake -DCMAKE_BUILD_TYPE=Release -G \"MinGW Makefiles\" -DCMAKE_MAKE_PROGRAM=make -DBUILD_SHARED_LIBS=OFF -H. -Bbuild",
-    "cmake:unix": "emcmake cmake -DCMAKE_BUILD_TYPE=Release -G \"Unix Makefiles\" -DCMAKE_MAKE_PROGRAM=make -DBUILD_SHARED_LIBS=OFF -H. -Bbuild",
+    "cmake:win": "emcmake cmake -DCMAKE_BUILD_TYPE=Release -G \"MinGW Makefiles\" -DCMAKE_MAKE_PROGRAM=make -DBUILD_SHARED_LIBS=OFF -DEMNAPI_FIND_NODE_ADDON_API=ON -H. -Bbuild",
+    "cmake:unix": "emcmake cmake -DCMAKE_BUILD_TYPE=Release -G \"Unix Makefiles\" -DCMAKE_MAKE_PROGRAM=make -DBUILD_SHARED_LIBS=OFF -DEMNAPI_FIND_NODE_ADDON_API=ON -H. -Bbuild",
     "cmake:build": "cmake --build build && node ./script/copy.js",
     "gyp:rebuild": "node-gyp rebuild --verbose",
     "gyp:build": "node-gyp build --verbose",
@@ -16,9 +16,8 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@tybys/emnapi": "0.13.0",
-    "@tybys/emnapi-runtime": "0.13.0",
-    "@tybys/emwrap": "^2.2.2",
+    "emnapi": "1.0.0",
+    "@emnapi/runtime": "1.0.0",
     "fs-extra": "^10.1.0",
     "jimp": "^0.16.1",
     "node-addon-api": "*"
