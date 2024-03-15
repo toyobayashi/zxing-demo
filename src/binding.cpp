@@ -7,19 +7,18 @@
 #include "TextUtfEncoding.h"
 #include "BarcodeFormat.h"
 #include "MultiFormatWriter.h"
-#include "CharacterSetECI.h"
+#include "CharacterSet.h"
 
 namespace zxingwasm {
 
 inline Napi::Value ConvertResultToObject(Napi::Env env,
                                          const std::string& format,
-                                         const std::wstring& text,
+                                         const std::string& text,
                                          const std::string& error,
                                          const ZXing::Position& position) {
   Napi::Object js_result = Napi::Object::New(env);
   js_result["format"] = Napi::String::New(env, format);
-  js_result["text"] = Napi::String::New(env,
-    ZXing::TextUtfEncoding::ToUtf8(text));
+  js_result["text"] = Napi::String::New(env, text);
   js_result["error"] = Napi::String::New(env, error);
 
   if (error.empty() && !format.empty()) {
@@ -61,18 +60,18 @@ Napi::Value JsReadFromRawImage(const Napi::CallbackInfo& info) {
   std::string format = info[4].As<Napi::String>().Utf8Value();
 
   try {
-    ZXing::DecodeHints hints;
-    hints.setTryHarder(tryHarder);
-    hints.setTryRotate(tryHarder);
-    hints.setFormats(ZXing::BarcodeFormatsFromString(format));
+    ZXing::ReaderOptions options;
+    options.setTryHarder(tryHarder);
+    options.setTryRotate(tryHarder);
+    options.setFormats(ZXing::BarcodeFormatsFromString(format));
 
     ZXing::ImageView view(u8arr.Data(),
       width, height, ZXing::ImageFormat::RGBX);
-    ZXing::Result result = ZXing::ReadBarcode(view, hints);
+    ZXing::Result result = ZXing::ReadBarcode(view, options);
     return ConvertResultToObject(env,
       ZXing::ToString(result.format()),
       result.text(),
-      result.isValid() ? "" : ZXing::ToString(result.status()),
+      result.isValid() ? "" : ZXing::ToString(result.error()),
       result.position());
   } catch (const Napi::Error& e) {
     e.ThrowAsJavaScriptException();
@@ -109,7 +108,7 @@ Napi::Value JsGenerateMatrix(const Napi::CallbackInfo& info) {
       writer.setMargin(margin);
 
     ZXing::CharacterSet charset =
-      ZXing::CharacterSetECI::CharsetFromName(encoding.c_str());
+      ZXing::CharacterSetFromString(encoding.c_str());
     if (charset != ZXing::CharacterSet::Unknown)
       writer.setEncoding(charset);
 
@@ -118,7 +117,7 @@ Napi::Value JsGenerateMatrix(const Napi::CallbackInfo& info) {
 
     ZXing::Matrix<uint8_t>* buffer = new ZXing::Matrix<uint8_t>(
       ZXing::ToMatrix<uint8_t>(writer.encode(
-        ZXing::TextUtfEncoding::FromUtf8(text), width, height)));
+        text, width, height)));
 
     Napi::FunctionReference* constructor =
       env.GetInstanceData<Napi::FunctionReference>();
