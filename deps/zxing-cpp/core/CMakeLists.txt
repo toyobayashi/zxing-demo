@@ -1,4 +1,12 @@
-cmake_minimum_required (VERSION 3.10)
+cmake_minimum_required(VERSION 3.15)
+
+project (ZXing VERSION "2.2.1")
+set (ZXING_SONAME 3) # see https://github.com/zxing-cpp/zxing-cpp/issues/333
+
+include(../zxing.cmake)
+if (BUILD_SHARED_LIBS)
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
 
 if (NOT DEFINED BUILD_WRITERS)
     set (BUILD_WRITERS OFF)
@@ -14,8 +22,17 @@ if (WINRT)
         -DWINRT
     )
 endif()
+if (MSVC)
+    set (ZXING_CORE_DEFINES ${ZXING_CORE_DEFINES}
+        /Zc:__cplusplus
+    )
+endif()
 
-set (ZXING_CORE_LOCAL_DEFINES)
+set (ZXING_CORE_LOCAL_DEFINES
+    $<$<BOOL:${BUILD_READERS}>:-DZXING_BUILD_READERS>
+    $<$<BOOL:${BUILD_WRITERS}>:-DZXING_BUILD_WRITERS>
+    $<$<BOOL:${BUILD_UNIT_TESTS}>:-DZXING_BUILD_FOR_TEST>
+)
 if (MSVC)
     set (ZXING_CORE_LOCAL_DEFINES ${ZXING_CORE_LOCAL_DEFINES}
         -D_SCL_SECURE_NO_WARNINGS
@@ -25,7 +42,7 @@ if (MSVC)
     )
 else()
     set (ZXING_CORE_LOCAL_DEFINES ${ZXING_CORE_LOCAL_DEFINES}
-        -Wall -Wextra -Wno-missing-braces -Werror=undef)
+        -Wall -Wextra -Wno-missing-braces -Werror=undef -Werror=return-type)
 endif()
 
 
@@ -45,12 +62,14 @@ set (COMMON_FILES
     src/ByteArray.h
     src/ByteMatrix.h
     src/CharacterSet.h
-    src/CharacterSetECI.h
-    src/CharacterSetECI.cpp
+    src/CharacterSet.cpp
     src/ConcentricFinder.h
     src/ConcentricFinder.cpp
     src/CustomData.h
+    src/ECI.h
+    src/ECI.cpp
     src/Flags.h
+    src/Generator.h
     src/GenericGF.h
     src/GenericGF.cpp
     src/GenericGFPoly.h
@@ -62,16 +81,19 @@ set (COMMON_FILES
     src/Pattern.h
     src/Point.h
     src/Quadrilateral.h
+    src/Range.h
     src/RegressionLine.h
     src/Scope.h
-    src/TextUtfEncoding.h
-    src/TextUtfEncoding.cpp
+    src/TextUtfEncoding.h # [[deprecated]]
+    src/TextUtfEncoding.cpp # [[deprecated]]
     src/TritMatrix.h
+    src/Utf.h
+    src/Utf.cpp
+    src/ZXAlgorithms.h
     src/ZXBigInteger.h
     src/ZXBigInteger.cpp
     src/ZXConfig.h
     src/ZXNullable.h
-    src/ZXContainerAlgorithms.h
     src/ZXTestSupport.h
 )
 if (BUILD_READERS)
@@ -80,37 +102,37 @@ if (BUILD_READERS)
         src/BinaryBitmap.cpp
         src/BitSource.h
         src/BitSource.cpp
+        src/Content.h
+        src/Content.cpp
         src/DecodeHints.h
         src/DecodeHints.cpp
-        src/DecodeStatus.h
-        src/DecodeStatus.cpp
         src/DecoderResult.h
         src/DetectorResult.h
-        src/GenericLuminanceSource.h
-        src/GenericLuminanceSource.cpp
+        src/Error.h
         src/GlobalHistogramBinarizer.h
         src/GlobalHistogramBinarizer.cpp
         src/GridSampler.h
         src/GridSampler.cpp
+        src/HRI.h
+        src/HRI.cpp
         src/HybridBinarizer.h
         src/HybridBinarizer.cpp
-        src/LuminanceSource.h
-        src/LuminanceSource.cpp
+        src/ImageView.h
         src/MultiFormatReader.h
         src/MultiFormatReader.cpp
         src/PerspectiveTransform.h
         src/PerspectiveTransform.cpp
         src/Reader.h
+        src/ReaderOptions.h
         src/ReadBarcode.h
         src/ReadBarcode.cpp
         src/ReedSolomonDecoder.h
         src/ReedSolomonDecoder.cpp
         src/Result.h
         src/Result.cpp
-        src/ResultMetadata.h
-        src/ResultMetadata.cpp
         src/ResultPoint.h
         src/ResultPoint.cpp
+        src/StructuredAppend.h
         src/TextDecoder.h
         src/TextDecoder.cpp
         src/ThresholdBinarizer.h
@@ -130,6 +152,42 @@ if (BUILD_WRITERS)
     )
 endif()
 
+# define subset of public headers that get distributed with the binaries
+set (PUBLIC_HEADERS
+    src/BarcodeFormat.h
+    src/BitHacks.h
+    src/ByteArray.h
+    src/CharacterSet.h
+    src/Flags.h
+    src/GTIN.h
+    src/TextUtfEncoding.h # [[deprecated]]
+    src/ZXAlgorithms.h
+    src/ZXConfig.h
+)
+if (BUILD_READERS)
+    set (PUBLIC_HEADERS ${PUBLIC_HEADERS}
+        src/Content.h
+        src/DecodeHints.h
+        src/Error.h
+        src/ImageView.h
+        src/Point.h
+        src/Quadrilateral.h
+        src/ReadBarcode.h
+        src/ReaderOptions.h
+        src/Result.h
+        src/StructuredAppend.h
+    )
+endif()
+if (BUILD_WRITERS)
+    set (PUBLIC_HEADERS ${PUBLIC_HEADERS}
+        src/BitMatrix.h
+        src/BitMatrixIO.h
+        src/Matrix.h
+        src/MultiFormatWriter.h
+        src/Range.h
+    )
+endif()
+# end of public header set
 
 set (AZTEC_FILES
 )
@@ -162,6 +220,8 @@ endif()
 set (DATAMATRIX_FILES
     src/datamatrix/DMBitLayout.h
     src/datamatrix/DMBitLayout.cpp
+    src/datamatrix/DMVersion.h
+    src/datamatrix/DMVersion.cpp
 )
 if (BUILD_READERS)
     set (DATAMATRIX_FILES ${DATAMATRIX_FILES}
@@ -171,8 +231,6 @@ if (BUILD_READERS)
         src/datamatrix/DMDecoder.cpp
         src/datamatrix/DMDetector.h
         src/datamatrix/DMDetector.cpp
-        src/datamatrix/DMVersion.h
-        src/datamatrix/DMVersion.cpp
         src/datamatrix/DMReader.h
         src/datamatrix/DMReader.cpp
     )
@@ -227,6 +285,8 @@ if (BUILD_READERS)
         src/oned/ODDataBarCommon.cpp
         src/oned/ODDataBarReader.h
         src/oned/ODDataBarReader.cpp
+        src/oned/ODDataBarExpandedBitDecoder.h
+        src/oned/ODDataBarExpandedBitDecoder.cpp
         src/oned/ODDataBarExpandedReader.h
         src/oned/ODDataBarExpandedReader.cpp
         src/oned/ODITFReader.h
@@ -265,20 +325,6 @@ if (BUILD_WRITERS)
 endif()
 
 
-set (ONED_RSS_FILES
-)
-if (BUILD_READERS)
-    set (ONED_RSS_FILES ${ONED_RSS_FILES}
-        src/oned/rss/ODRSSExpandedBinaryDecoder.h
-        src/oned/rss/ODRSSExpandedBinaryDecoder.cpp
-        src/oned/rss/ODRSSFieldParser.h
-        src/oned/rss/ODRSSFieldParser.cpp
-        src/oned/rss/ODRSSGenericAppIdDecoder.h
-        src/oned/rss/ODRSSGenericAppIdDecoder.cpp
-    )
-endif()
-
-
 set (PDF417_FILES
 )
 if (BUILD_READERS)
@@ -291,8 +337,8 @@ if (BUILD_READERS)
         src/pdf417/PDFCodeword.h
         src/pdf417/PDFCodewordDecoder.h
         src/pdf417/PDFCodewordDecoder.cpp
-        src/pdf417/PDFDecodedBitStreamParser.h
-        src/pdf417/PDFDecodedBitStreamParser.cpp
+        src/pdf417/PDFDecoder.h
+        src/pdf417/PDFDecoder.cpp
         src/pdf417/PDFDecoderResultExtra.h
         src/pdf417/PDFDetectionResult.h
         src/pdf417/PDFDetectionResult.cpp
@@ -340,7 +386,6 @@ if (BUILD_READERS)
         src/qrcode/QRDataMask.h
         src/qrcode/QRDecoder.h
         src/qrcode/QRDecoder.cpp
-        src/qrcode/QRDecoderMetadata.h
         src/qrcode/QRDetector.h
         src/qrcode/QRDetector.cpp
         src/qrcode/QRECB.h
@@ -364,36 +409,16 @@ if (BUILD_WRITERS)
     )
 endif()
 
-
-set (TEXT_CODEC_FILES
-    src/textcodec/Big5MapTable.h
-    src/textcodec/Big5MapTable.cpp
-    src/textcodec/KRHangulMapping.h
-    src/textcodec/KRHangulMapping.cpp
+set (LIBZUECI_FILES
+    src/libzueci/zueci.c
+    src/libzueci/zueci.h
 )
-if (BUILD_READERS)
-    set (TEXT_CODEC_FILES ${TEXT_CODEC_FILES}
-        src/textcodec/Big5TextDecoder.h
-        src/textcodec/Big5TextDecoder.cpp
-        src/textcodec/GBTextDecoder.h
-        src/textcodec/GBTextDecoder.cpp
-        src/textcodec/JPTextDecoder.h
-        src/textcodec/JPTextDecoder.cpp
-        src/textcodec/KRTextDecoder.h
-        src/textcodec/KRTextDecoder.cpp
-    )
+
+if (NOT BUILD_READERS)
+    set_source_files_properties(src/libzueci/zueci.c PROPERTIES COMPILE_FLAGS -DZUECI_EMBED_NO_TO_UTF)
 endif()
-if (BUILD_WRITERS)
-    set (TEXT_CODEC_FILES ${TEXT_CODEC_FILES}
-        src/textcodec/Big5TextEncoder.h
-        src/textcodec/Big5TextEncoder.cpp
-        src/textcodec/GBTextEncoder.h
-        src/textcodec/GBTextEncoder.cpp
-        src/textcodec/JPTextEncoder.h
-        src/textcodec/JPTextEncoder.cpp
-        src/textcodec/KRTextEncoder.h
-        src/textcodec/KRTextEncoder.cpp
-    )
+if (NOT BUILD_WRITERS)
+    set_source_files_properties(src/libzueci/zueci.c PROPERTIES COMPILE_FLAGS -DZUECI_EMBED_NO_TO_ECI)
 endif()
 
 source_group (Sources FILES ${COMMON_FILES})
@@ -401,10 +426,9 @@ source_group (Sources\\aztec FILES ${AZTEC_FILES})
 source_group (Sources\\datamatrix FILES ${DATAMATRIX_FILES})
 source_group (Sources\\maxicode FILES ${MAXICODE_FILES})
 source_group (Sources\\oned FILES ${ONED_FILES})
-source_group (Sources\\oned\\rss FILES ${ONED_RSS_FILES})
 source_group (Sources\\pdf417 FILES ${PDF417_FILES})
 source_group (Sources\\qrcode FILES ${QRCODE_FILES})
-source_group (Sources\\textcodec FILES ${TEXT_CODEC_FILES})
+source_group (Sources\\libzueci FILES ${LIBZUECI_FILES})
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
@@ -416,14 +440,13 @@ add_library (ZXing
     ${DATAMATRIX_FILES}
     ${MAXICODE_FILES}
     ${ONED_FILES}
-    ${ONED_RSS_FILES}
     ${PDF417_FILES}
     ${QRCODE_FILES}
-    ${TEXT_CODEC_FILES}
+    ${LIBZUECI_FILES}
 )
 
 target_include_directories (ZXing
-    PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>"
+    PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>" "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>"
     INTERFACE "$<INSTALL_INTERFACE:include>"
 )
 
@@ -441,8 +464,7 @@ if (COMPILER_NEEDS_FLOAT_STORE)
     )
 endif()
 
-# the lib needs a c++-17 compiler but can be used with a c++-11 compiler (see examples)
-target_compile_features(ZXing PRIVATE cxx_std_17 INTERFACE cxx_std_11)
+target_compile_features(ZXing PUBLIC cxx_std_17)
 
 target_link_libraries (ZXing PRIVATE Threads::Threads)
 
@@ -453,28 +475,75 @@ add_library(ZXing::ZXing ALIAS ZXing)
 add_library(ZXing::Core ALIAS ZXing)
 
 set_target_properties(ZXing PROPERTIES EXPORT_NAME ZXing)
-# force position indepent code to be able to link it as static lib into a DLL (e.g. the python module)
+# force position independent code to be able to link it as static lib into a DLL (e.g. the python module)
 set_target_properties(ZXing PROPERTIES POSITION_INDEPENDENT_CODE ON)
 if (PROJECT_VERSION)
     set_target_properties(ZXing PROPERTIES VERSION ${PROJECT_VERSION})
-    set_target_properties(ZXing PROPERTIES SOVERSION ${PROJECT_VERSION_MAJOR})
+    set_target_properties(ZXing PROPERTIES SOVERSION ${ZXING_SONAME})
 endif()
+
+set_target_properties(ZXing PROPERTIES PUBLIC_HEADER "${PUBLIC_HEADERS}")
 
 include (GNUInstallDirs)
 
+set(ZX_INSTALL_TARGETS ZXing)
+
 install (
-    TARGETS ZXing EXPORT ZXingTargets
+    TARGETS ${ZX_INSTALL_TARGETS} EXPORT ZXingTargets
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    INCLUDES DESTINATION include
+    FRAMEWORK DESTINATION ${CMAKE_INSTALL_LIBDIR}
+#    INCLUDES DESTINATION include
+    PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/ZXing"
 )
 
-if(MSVC)
+configure_file (ZXVersion.h.in ZXVersion.h)
+
+install (
+    FILES "${CMAKE_CURRENT_BINARY_DIR}/ZXVersion.h"
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/ZXing"
+)
+
+if (MSVC)
     set_target_properties(ZXing PROPERTIES
         COMPILE_PDB_NAME ZXing
         COMPILE_PDB_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ZXing.pdb
             DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            CONFIGURATIONS Debug RelWithDebInfo)
+            CONFIGURATIONS Debug RelWithDebInfo 
+            OPTIONAL)
 endif()
+
+set (CMAKECONFIG_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/ZXing")
+
+install (
+    EXPORT ZXingTargets
+    DESTINATION ${CMAKECONFIG_INSTALL_DIR} NAMESPACE ZXing::
+)
+
+IF (NOT WIN32 OR MINGW)
+    configure_file(zxing.pc.in zxing.pc @ONLY)
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/zxing.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+ENDIF()
+
+include (CMakePackageConfigHelpers)
+
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/ZXingConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+configure_package_config_file (
+    ZXingConfig.cmake.in
+    ZXingConfig.cmake
+    INSTALL_DESTINATION ${CMAKECONFIG_INSTALL_DIR}
+)
+
+install (
+    FILES
+        "${CMAKE_CURRENT_BINARY_DIR}/ZXingConfig.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/ZXingConfigVersion.cmake"
+    DESTINATION ${CMAKECONFIG_INSTALL_DIR}
+)

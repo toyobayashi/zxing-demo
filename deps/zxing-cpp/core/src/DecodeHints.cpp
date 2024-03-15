@@ -1,22 +1,30 @@
 /*
-* Copyright 2016 Nu-book Inc.
-* Copyright 2016 ZXing authors
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*      http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
+* Copyright 2023 Axel Waggershauser
 */
+// SPDX-License-Identifier: Apache-2.0
 
-#include "DecodeHints.h"
+#define HIDE_DECODE_HINTS_ALIAS
+
+#include "ReadBarcode.h"
 
 namespace ZXing {
+
+// Provide a struct that is binary compatible with ReaderOptions and is actually called DecodeHints so that
+// the compiler generates a correctly mangled pair of ReadBarcode(s) symbols to keep backward ABI compatibility.
+
+struct DecodeHints
+{
+	char data[sizeof(ReaderOptions)];
+};
+
+Result ReadBarcode(const ImageView& image, const DecodeHints& hints = {})
+{
+	return ReadBarcode(image, reinterpret_cast<const ReaderOptions&>(hints));
+}
+
+Results ReadBarcodes(const ImageView& image, const DecodeHints& hints = {})
+{
+	return ReadBarcodes(image, reinterpret_cast<const ReaderOptions&>(hints));
+}
 
 } // ZXing

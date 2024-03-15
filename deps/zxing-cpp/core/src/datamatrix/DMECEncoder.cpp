@@ -1,19 +1,8 @@
 /*
 * Copyright 2016 Huy Cuong Nguyen
 * Copyright 2006 Jeremias Maerki.
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*      http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
 */
+// SPDX-License-Identifier: Apache-2.0
 
 #include "DMECEncoder.h"
 
@@ -59,7 +48,7 @@ static const std::array<ByteArray, 16> FACTORS = {{
 	/*set 16*/ {220, 228, 173, 89, 251, 149, 159, 56, 89, 33, 147, 244, 154, 36, 73, 127, 213, 136, 248, 180,
 				234, 197, 158, 177, 68, 122, 93, 213, 15, 160, 227, 236, 66, 139, 153, 185, 202, 167, 179, 25,
 				220, 232, 96, 210, 231, 136, 223, 239, 181, 241, 59, 52, 172, 25, 49, 232, 211, 189, 64, 54,
-                108, 153, 132, 63, 96, 103, 82, 186},
+				108, 153, 132, 63, 96, 103, 82, 186},
 }};
 
 static const uint8_t LOG[] = {

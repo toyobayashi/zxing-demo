@@ -2,7 +2,7 @@ name: build-winrt
 on:
   release:
     types: [published]
-    
+
   workflow_dispatch:
     inputs:
       publish:
@@ -20,7 +20,7 @@ jobs:
         target: [Win32, x64, ARM, ARM64]
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: Create build environment
       shell: cmd
@@ -34,12 +34,12 @@ jobs:
       working-directory: ${{runner.workspace}}/build
       run: cmake ${{github.workspace}}/wrappers/winrt -A ${{matrix.target}} -DCMAKE_SYSTEM_NAME=WindowsStore -DCMAKE_SYSTEM_VERSION=10.0 -DCMAKE_BUILD_TYPE=Release -DBUILD_WINRT_LIB=ON -DBUILD_EXAMPLES=OFF -DBUILD_BLACKBOX_TESTS=OFF -DEXTENSION_SDK_OUTPUT=dist/UAP/v0.8.0.0/ExtensionSDKs/ZXingWinRT/1.0.0.0
 
-    - name: Buid
+    - name: Build
       shell: cmd
       working-directory: ${{runner.workspace}}/build
       run: cmake --build . -j8 --config Release
 
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: winrt-${{matrix.target}}-artifacts
         path: ${{runner.workspace}}/build/dist
@@ -49,16 +49,16 @@ jobs:
     runs-on: windows-latest
     if: ${{ github.event_name == 'release' || github.event.inputs.publish == 'y' }}
     steps:
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v3
       with:
         name: winrt-Win32-artifacts
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v3
       with:
         name: winrt-x64-artifacts
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v3
       with:
         name: winrt-ARM-artifacts
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v3
       with:
         name: winrt-ARM64-artifacts
 
@@ -76,10 +76,10 @@ jobs:
 
     - name: Publish NuGet package
       shell: cmd
-      run: nuget push huycn.zxingcpp.winrt.nupkg ${{ secrets.NUGET_API_KEY }} -Source https://api.nuget.org/v3/index.json
+      run: nuget push huycn.zxingcpp.winrt.nupkg -ApiKey ${{ secrets.NUGET_API_KEY }} -Source https://api.nuget.org/v3/index.json
 
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: nuget-package
         path: huycn.zxingcpp.winrt.nupkg
-        
+

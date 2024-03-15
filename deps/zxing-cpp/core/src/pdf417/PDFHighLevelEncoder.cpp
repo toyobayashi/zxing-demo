@@ -2,27 +2,16 @@
 * Copyright 2016 Huy Cuong Nguyen
 * Copyright 2016 ZXing authors
 * Copyright 2006 Jeremias Maerki in part, and ZXing Authors in part
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*      http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
 */
+// SPDX-License-Identifier: Apache-2.0
 
 #include "PDFHighLevelEncoder.h"
 #include "PDFCompaction.h"
 #include "CharacterSet.h"
-#include "CharacterSetECI.h"
+#include "ECI.h"
 #include "TextEncoder.h"
 #include "ZXBigInteger.h"
-#include "ZXContainerAlgorithms.h"
+#include "ZXAlgorithms.h"
 
 #include <cstdint>
 #include <algorithm>
@@ -216,11 +205,11 @@ static bool IsText(int ch)
 * Encode parts of the message using Text Compaction as described in ISO/IEC 15438:2001(E),
 * chapter 4.4.2.
 *
-* @param msg            the message
-* @param startpos       the start position within the message
-* @param count          the number of characters to encode
-* @param sb             receives the encoded codewords
-* @param initialSubmode should normally be SUBMODE_ALPHA
+* @param msg      the message
+* @param startpos the start position within the message
+* @param count    the number of characters to encode
+* @param submode  should normally be SUBMODE_ALPHA
+* @param output   receives the encoded codewords
 * @return the text submode in which this method ends
 */
 static int EncodeText(const std::wstring& msg, int startpos, int count, int submode, std::vector<int>& output)
@@ -231,80 +220,70 @@ static int EncodeText(const std::wstring& msg, int startpos, int count, int subm
 	while (true) {
 		int ch = msg[startpos + idx];
 		switch (submode) {
-			case SUBMODE_ALPHA:
-				if (IsAlphaUpper(ch)) {
-					tmp.push_back(ch == ' ' ? 26 : (ch - 65)); //space
-				}
-				else if (IsAlphaLower(ch)) {
-					submode = SUBMODE_LOWER;
-					tmp.push_back(27); //ll
-					continue;
-				}
-				else if (IsMixed(ch)) {
-					submode = SUBMODE_MIXED;
-					tmp.push_back(28); //ml
-					continue;
-				}
-				else {
-					tmp.push_back(29); //ps
-					tmp.push_back(PUNCTUATION[ch]);
-				}
-				break;
-			case SUBMODE_LOWER:
-				if (IsAlphaLower(ch)) {
-					tmp.push_back(ch == ' ' ? 26 : (ch - 97)); //space
-				}
-				else if (IsAlphaUpper(ch)) {
-					tmp.push_back(27); //as
-					tmp.push_back(ch - 65);
-					//space cannot happen here, it is also in "Lower"
-				}
-				else if (IsMixed(ch)) {
-					submode = SUBMODE_MIXED;
-					tmp.push_back(28); //ml
-					continue;
-				}
-				else {
-					tmp.push_back(29); //ps
-					tmp.push_back(PUNCTUATION[ch]);
-				}
-				break;
-			case SUBMODE_MIXED:
-				if (IsMixed(ch)) {
-					tmp.push_back(MIXED[ch]);
-				}
-				else if (IsAlphaUpper(ch)) {
-					submode = SUBMODE_ALPHA;
-					tmp.push_back(28); //al
-					continue;
-				}
-				else if (IsAlphaLower(ch)) {
-					submode = SUBMODE_LOWER;
-					tmp.push_back(27); //ll
-					continue;
-				}
-				else {
-					if (startpos + idx + 1 < count) {
-						int next = msg[startpos + idx + 1];
-						if (IsPunctuation(next)) {
-							submode = SUBMODE_PUNCTUATION;
-							tmp.push_back(25); //pl
-							continue;
-						}
+		case SUBMODE_ALPHA:
+			if (IsAlphaUpper(ch)) {
+				tmp.push_back(ch == ' ' ? 26 : (ch - 65)); // space
+			} else if (IsAlphaLower(ch)) {
+				submode = SUBMODE_LOWER;
+				tmp.push_back(27); // ll
+				continue;
+			} else if (IsMixed(ch)) {
+				submode = SUBMODE_MIXED;
+				tmp.push_back(28); // ml
+				continue;
+			} else {
+				tmp.push_back(29); // ps
+				tmp.push_back(PUNCTUATION[ch]);
+			}
+			break;
+		case SUBMODE_LOWER:
+			if (IsAlphaLower(ch)) {
+				tmp.push_back(ch == ' ' ? 26 : (ch - 97)); // space
+			} else if (IsAlphaUpper(ch)) {
+				tmp.push_back(27); // as
+				tmp.push_back(ch - 65);
+				// space cannot happen here, it is also in "Lower"
+			} else if (IsMixed(ch)) {
+				submode = SUBMODE_MIXED;
+				tmp.push_back(28); // ml
+				continue;
+			} else {
+				tmp.push_back(29); // ps
+				tmp.push_back(PUNCTUATION[ch]);
+			}
+			break;
+		case SUBMODE_MIXED:
+			if (IsMixed(ch)) {
+				tmp.push_back(MIXED[ch]);
+			} else if (IsAlphaUpper(ch)) {
+				submode = SUBMODE_ALPHA;
+				tmp.push_back(28); // al
+				continue;
+			} else if (IsAlphaLower(ch)) {
+				submode = SUBMODE_LOWER;
+				tmp.push_back(27); // ll
+				continue;
+			} else {
+				if (startpos + idx + 1 < count) {
+					int next = msg[startpos + idx + 1];
+					if (IsPunctuation(next)) {
+						submode = SUBMODE_PUNCTUATION;
+						tmp.push_back(25); // pl
+						continue;
 					}
-					tmp.push_back(29); //ps
-					tmp.push_back(PUNCTUATION[ch]);
 				}
-				break;
-			default: //SUBMODE_PUNCTUATION
-				if (IsPunctuation(ch)) {
-					tmp.push_back(PUNCTUATION[ch]);
-				}
-				else {
-					submode = SUBMODE_ALPHA;
-					tmp.push_back(29); //al
-					continue;
-				}
+				tmp.push_back(29); // ps
+				tmp.push_back(PUNCTUATION[ch]);
+			}
+			break;
+		default: // SUBMODE_PUNCTUATION
+			if (IsPunctuation(ch)) {
+				tmp.push_back(PUNCTUATION[ch]);
+			} else {
+				submode = SUBMODE_ALPHA;
+				tmp.push_back(29); // al
+				continue;
+			}
 		}
 		idx++;
 		if (idx >= count) {
@@ -339,7 +318,7 @@ static int EncodeText(const std::wstring& msg, int startpos, int count, int subm
 * @param startpos  the start position within the message
 * @param count     the number of bytes to encode
 * @param startmode the mode from which this method starts
-* @param sb        receives the encoded codewords
+* @param output    receives the encoded codewords
 */
 static void EncodeBinary(const std::string& bytes, int startpos, int count, int startmode, std::vector<int>& output)
 {
@@ -477,7 +456,6 @@ static int DetermineConsecutiveTextCount(const std::wstring& msg, int startpos)
 *
 * @param msg      the message
 * @param startpos the start position within the message
-* @param encoding the charset used to convert the message to a byte array
 * @return the requested character count
 */
 static int DetermineConsecutiveBinaryCount(const std::wstring& msg, int startpos)
@@ -523,8 +501,8 @@ HighLevelEncoder::EncodeHighLevel(const std::wstring& msg, Compaction compaction
 	highLevel.reserve(highLevel.size() + msg.length());
 
 	//the codewords 0..928 are encoded as Unicode characters
-	if (encoding != CharacterSet::ISO8859_1) {		
-		EncodingECI(CharacterSetECI::ValueForCharset(encoding), highLevel);
+	if (encoding != CharacterSet::ISO8859_1) {
+		EncodingECI(ToInt(ToECI(encoding)), highLevel);
 	}
 
 	int len = Size(msg);

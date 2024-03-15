@@ -1,18 +1,7 @@
 /*
 * Copyright 2017 Huy Cuong Nguyen
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*      http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
 */
+// SPDX-License-Identifier: Apache-2.0
 
 #include "MultiFormatWriter.h"
 
@@ -31,6 +20,7 @@
 #include "pdf417/PDFWriter.h"
 #include "qrcode/QRErrorCorrectionLevel.h"
 #include "qrcode/QRWriter.h"
+#include "Utf.h"
 
 #include <stdexcept>
 
@@ -59,9 +49,15 @@ MultiFormatWriter::encode(const std::wstring& contents, int width, int height) c
 		return exec0(std::move(writer));
 	};
 
+	auto exec2 = [&](auto&& writer) {
+		if (_encoding != CharacterSet::Unknown)
+			writer.setEncoding(_encoding);
+		return exec0(std::move(writer));
+	};
+
 	switch (_format) {
 	case BarcodeFormat::Aztec: return exec1(Aztec::Writer(), AztecEccLevel);
-	case BarcodeFormat::DataMatrix: return exec0(DataMatrix::Writer());
+	case BarcodeFormat::DataMatrix: return exec2(DataMatrix::Writer());
 	case BarcodeFormat::PDF417: return exec1(Pdf417::Writer(), Pdf417EccLevel);
 	case BarcodeFormat::QRCode: return exec1(QRCode::Writer(), QRCodeEccLevel);
 	case BarcodeFormat::Codabar: return exec0(OneD::CodabarWriter());
@@ -75,6 +71,11 @@ MultiFormatWriter::encode(const std::wstring& contents, int width, int height) c
 	case BarcodeFormat::UPCE: return exec0(OneD::UPCEWriter());
 	default: throw std::invalid_argument(std::string("Unsupported format: ") + ToString(_format));
 	}
+}
+
+BitMatrix MultiFormatWriter::encode(const std::string& contents, int width, int height) const
+{
+	return encode(FromUtf8(contents), width, height);
 }
 
 } // ZXing

@@ -1,24 +1,14 @@
-#pragma once
 /*
 * Copyright 2016 Nu-book Inc.
 * Copyright 2016 ZXing authors
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*      http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
 */
+// SPDX-License-Identifier: Apache-2.0
 
-namespace ZXing {
-namespace QRCode {
+#pragma once
 
+namespace ZXing::QRCode {
+
+enum class Type;
 class Version;
 
 /**
@@ -40,11 +30,12 @@ enum class CodecMode
 };
 
 /**
- * @param bits four bits encoding a QR Code data mode
+ * @param bits variable number of bits encoding a QR Code data mode
+ * @param type type of QR Code
  * @return Mode encoded by these bits
- * @throws IllegalArgumentException if bits do not correspond to a known mode
+ * @throws FormatError if bits do not correspond to a known mode
  */
-CodecMode CodecModeForBits(int bits);
+CodecMode CodecModeForBits(int bits, Type type);
 
 /**
  * @param version version in question
@@ -53,5 +44,16 @@ CodecMode CodecModeForBits(int bits);
  */
 int CharacterCountBits(CodecMode mode, const Version& version);
 
-} // QRCode
-} // ZXing
+/**
+ * @param version version in question
+ * @return number of bits used to encode a codec mode.
+ */
+int CodecModeBitsLength(const Version& version);
+
+/**
+ * @param version version in question
+ * @return number of bits in the Terminator code.
+ */
+int TerminatorBitsLength(const Version& version);
+
+} // namespace ZXing::QRCode

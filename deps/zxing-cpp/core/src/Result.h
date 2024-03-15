@@ -1,120 +1,114 @@
-#pragma once
 /*
 * Copyright 2016 Nu-book Inc.
 * Copyright 2016 ZXing authors
 * Copyright 2020 Axel Waggershauser
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*      http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
 */
+// SPDX-License-Identifier: Apache-2.0
+
+#pragma once
 
 #include "BarcodeFormat.h"
 #include "ByteArray.h"
-#include "DecodeStatus.h"
+#include "Content.h"
+#include "ReaderOptions.h"
+#include "Error.h"
 #include "Quadrilateral.h"
-#include "ResultMetadata.h"
-#include "ResultPoint.h"
 #include "StructuredAppend.h"
 
 #include <string>
-#include <utility>
 #include <vector>
 
 namespace ZXing {
 
 class DecoderResult;
+class ImageView;
 
 using Position = QuadrilateralI;
 
 /**
-* <p>Encapsulates the result of decoding a barcode within an image.</p>
-*
-* @author Sean Owen
-*/
+ * @brief The Result class encapsulates the result of decoding a barcode within an image.
+ */
 class Result
 {
+	void setIsInverted(bool v) { _isInverted = v; }
+	Result& setReaderOptions(const ReaderOptions& opts);
+
+	friend Result MergeStructuredAppendSequence(const std::vector<Result>& results);
+	friend std::vector<Result> ReadBarcodes(const ImageView&, const ReaderOptions&);
+	friend void IncrementLineCount(Result&);
+
 public:
-	explicit Result(DecodeStatus status) : _status(status) {}
+	Result() = default;
 
-	Result(std::wstring&& text, Position&& position, BarcodeFormat format, ByteArray&& rawBytes = {},
-		   const bool readerInit = false);
-
-	// 1D convenience constructor
-	Result(const std::string& text, int y, int xStart, int xStop, BarcodeFormat format, ByteArray&& rawBytes = {},
-		   const bool readerInit = false);
+	// linear symbology convenience constructor
+	Result(const std::string& text, int y, int xStart, int xStop, BarcodeFormat format, SymbologyIdentifier si, Error error = {},
+		   bool readerInit = false);
 
 	Result(DecoderResult&& decodeResult, Position&& position, BarcodeFormat format);
 
-	bool isValid() const {
-		return StatusIsOK(_status);
-	}
+	bool isValid() const;
 
-	DecodeStatus status() const {
-		return _status;
-	}
+	const Error& error() const { return _error; }
 
-	BarcodeFormat format() const {
-		return _format;
-	}
+	BarcodeFormat format() const { return _format; }
 
-	[[deprecated]]
-	void setFormat(BarcodeFormat format) {
-		_format = format;
-	}
+	/**
+	 * @brief bytes is the raw / standard content without any modifications like character set conversions
+	 */
+	const ByteArray& bytes() const;
 
-	const std::wstring& text() const {
-		return _text;
-	}
+	/**
+	 * @brief bytesECI is the raw / standard content following the ECI protocol
+	 */
+	ByteArray bytesECI() const;
 
-	[[deprecated]]
-	void setText(std::wstring&& text) {
-		_text = std::move(text);
-	}
+	/**
+	 * @brief text returns the bytes() content rendered to unicode/utf8 text accoring to specified TextMode
+	 */
+	std::string text(TextMode mode) const;
 
-	const Position& position() const {
-		return _position;
-	}
-	void setPosition(Position pos) {
-		_position = pos;
-	}
+	/**
+	 * @brief text returns the bytes() content rendered to unicode/utf8 text accoring to the TextMode set in the ReaderOptions
+	 */
+	std::string text() const;
 
-	int orientation() const; //< orientation of barcode in degree, see also Position::orientation()
+	/**
+	 * @brief ecLevel returns the error correction level of the symbol (empty string if not applicable)
+	 */
+	std::string ecLevel() const;
 
-	const ByteArray& rawBytes() const {
-		return _rawBytes;
-	}
-	
-	int numBits() const {
-		return _numBits;
-	}
+	/**
+	 * @brief contentType gives a hint to the type of content found (Text/Binary/GS1/etc.)
+	 */
+	ContentType contentType() const;
 
-	const std::wstring& ecLevel() const {
-		return _ecLevel;
-	}
+	/**
+	 * @brief hasECI specifies wheter or not an ECI tag was found
+	 */
+	bool hasECI() const;
 
-	[[deprecated]]
-	std::vector<ResultPoint> resultPoints() const {
-		return {position().begin(), position().end()};
-	}
+	const Position& position() const { return _position; }
+	void setPosition(Position pos) { _position = pos; }
 
-	[[deprecated]]
-	const ResultMetadata& metadata() const {
-		return _metadata;
-	}
+	/**
+	 * @brief orientation of barcode in degree, see also Position::orientation()
+	 */
+	int orientation() const;
 
-	[[deprecated]]
-	ResultMetadata& metadata() {
-		return _metadata;
-	}
+	/**
+	 * @brief isMirrored is the symbol mirrored (currently only supported by QRCode and DataMatrix)
+	 */
+	bool isMirrored() const { return _isMirrored; }
+
+	/**
+	 * @brief isInverted is the symbol inverted / has reveresed reflectance (see ReaderOptions::tryInvert)
+	 */
+	bool isInverted() const { return _isInverted; }
+
+	/**
+	 * @brief symbologyIdentifier Symbology identifier "]cm" where "c" is symbology code character, "m" the modifier.
+	 */
+	std::string symbologyIdentifier() const;
 
 	/**
 	 * @brief sequenceSize number of symbols in a structured append sequence.
@@ -123,12 +117,12 @@ public:
 	 * If it is a structured append symbol but the total number of symbols is unknown, the
 	 * returned value is 0 (see PDF417 if optional "Segment Count" not given).
 	 */
-	int sequenceSize() const { return _sai.count; }
+	int sequenceSize() const;
 
 	/**
 	 * @brief sequenceIndex the 0-based index of this symbol in a structured append sequence.
 	 */
-	int sequenceIndex() const { return _sai.index; }
+	int sequenceIndex() const;
 
 	/**
 	 * @brief sequenceId id to check if a set of symbols belongs to the same structured append sequence.
@@ -137,29 +131,53 @@ public:
 	 * For QR Code, this is the parity integer converted to a string.
 	 * For PDF417 and DataMatrix, this is the "fileId".
 	 */
-	const std::string& sequenceId() const { return _sai.id; }
+	std::string sequenceId() const;
 
 	bool isLastInSequence() const { return sequenceSize() == sequenceIndex() + 1; }
-	bool isPartOfSequence() const { return sequenceSize() > -1; }
+	bool isPartOfSequence() const { return sequenceSize() > -1 && sequenceIndex() > -1; }
 
 	/**
 	 * @brief readerInit Set if Reader Initialisation/Programming symbol.
 	 */
-	bool readerInit() const {
-		return _readerInit;
-	}
+	bool readerInit() const { return _readerInit; }
+
+	/**
+	 * @brief lineCount How many lines have been detected with this code (applies only to linear symbologies)
+	 */
+	int lineCount() const { return _lineCount; }
+
+	/**
+	 * @brief version QRCode / DataMatrix / Aztec version or size.
+	 */
+	std::string version() const;
+
+	bool operator==(const Result& o) const;
 
 private:
-	DecodeStatus _status = DecodeStatus::NoError;
-	BarcodeFormat _format = BarcodeFormat::None;
-	std::wstring _text;
+	Content _content;
+	Error _error;
 	Position _position;
-	ByteArray _rawBytes;
-	int _numBits = 0;
-	std::wstring _ecLevel;
-	ResultMetadata _metadata;
+	ReaderOptions _readerOpts;
 	StructuredAppendInfo _sai;
+	BarcodeFormat _format = BarcodeFormat::None;
+	char _ecLevel[4] = {};
+	char _version[4] = {};
+	int _lineCount = 0;
+	bool _isMirrored = false;
+	bool _isInverted = false;
 	bool _readerInit = false;
 };
+
+using Results = std::vector<Result>;
+
+/**
+ * @brief Merge a list of Results from one Structured Append sequence to a single result
+ */
+Result MergeStructuredAppendSequence(const Results& results);
+
+/**
+ * @brief Automatically merge all Structured Append sequences found in the given results
+ */
+Results MergeStructuredAppendSequences(const Results& results);
 
 } // ZXing

@@ -1,23 +1,12 @@
 /*
 * Copyright 2016 Nu-book Inc.
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*      http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
 */
+// SPDX-License-Identifier: Apache-2.0
 
 #include "BarcodeFormat.h"
 #include "MultiFormatWriter.h"
 #include "BitMatrix.h"
-#include "CharacterSetECI.h"
+#include "CharacterSet.h"
 
 #include <string>
 #include <memory>
@@ -26,7 +15,7 @@
 #include <emscripten/val.h>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "stb_image_write.h"
+#include <stb_image_write.h>
 
 class ImageData
 {
@@ -70,7 +59,7 @@ WriteResult generateBarcode(std::wstring text, std::string format, std::string e
 		if (margin >= 0)
 			writer.setMargin(margin);
 
-		CharacterSet charset = CharacterSetECI::CharsetFromName(encoding.c_str());
+		CharacterSet charset = CharacterSetFromString(encoding);
 		if (charset != CharacterSet::Unknown)
 			writer.setEncoding(charset);
 

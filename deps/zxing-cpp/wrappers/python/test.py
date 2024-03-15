@@ -1,10 +1,12 @@
 import importlib.util
 import unittest
+import math
 
 import zxingcpp
 
 has_numpy = importlib.util.find_spec('numpy') is not None
 has_pil = importlib.util.find_spec('PIL') is not None
+has_cv2 = importlib.util.find_spec('cv2') is not None
 
 BF = zxingcpp.BarcodeFormat
 
@@ -16,13 +18,13 @@ class TestFormat(unittest.TestCase):
 		self.assertEqual(zxingcpp.barcode_formats_from_str('ITF, qrcode'), BF.ITF | BF.QRCode)
 
 
-@unittest.skipIf(not has_numpy, "need numpy for read/write tests")
 class TestReadWrite(unittest.TestCase):
 
 	def check_res(self, res, format, text):
 		self.assertTrue(res.valid)
 		self.assertEqual(res.format, format)
 		self.assertEqual(res.text, text)
+		self.assertEqual(res.bytes, bytes(text, 'utf-8'))
 		self.assertEqual(res.orientation, 0)
 
 	def test_write_read_cycle(self):
@@ -32,11 +34,11 @@ class TestReadWrite(unittest.TestCase):
 
 		res = zxingcpp.read_barcode(img)
 		self.check_res(res, format, text)
+		self.assertEqual(res.symbology_identifier, "]Q1")
 		self.assertEqual(res.position.top_left.x, 4)
 
 		res = zxingcpp.read_barcode(img, formats=format)
 		self.check_res(res, format, text)
-		self.assertEqual(res.position.top_left.x, 4)
 
 	def test_write_read_oned_cycle(self):
 		format = BF.Code128
@@ -51,15 +53,51 @@ class TestReadWrite(unittest.TestCase):
 		self.check_res(res, format, text)
 		self.assertEqual(res.position.top_left.x, 61)
 
-	def test_failed_read(self):
+	def test_write_read_multi_cycle(self):
+		format = BF.QRCode
+		text = "I have the best words."
+		img = zxingcpp.write_barcode(format, text)
+
+		res = zxingcpp.read_barcodes(img)[0]
+		self.check_res(res, format, text)
+
+	@staticmethod
+	def zeroes(shape):
+		return memoryview(b"0" * math.prod(shape)).cast("B", shape=shape)
+
+	def test_failed_read_buffer(self):
+		res = zxingcpp.read_barcode(
+			self.zeroes((100, 100)), formats=BF.EAN8 | BF.Aztec, binarizer=zxingcpp.Binarizer.BoolCast
+		)
+
+		self.assertEqual(res, None)
+
+	@unittest.skipIf(not has_numpy, "need numpy for read/write tests")
+	def test_failed_read_numpy(self):
 		import numpy as np
 		res = zxingcpp.read_barcode(
 			np.zeros((100, 100), np.uint8), formats=BF.EAN8 | BF.Aztec, binarizer=zxingcpp.Binarizer.BoolCast
 		)
 
-		self.assertFalse(res.valid)
-		self.assertEqual(res.format, BF.NONE)
-		self.assertEqual(res.text, '')
+		self.assertEqual(res, None)
+
+	def test_write_read_cycle_buffer(self):
+		format = BF.QRCode
+		text = "I have the best words."
+		img = zxingcpp.write_barcode(format, text)
+
+		self.check_res(zxingcpp.read_barcode(img), format, text)
+
+	@unittest.skipIf(not has_numpy, "need numpy for read/write tests")
+	def test_write_read_cycle_numpy(self):
+		import numpy as np
+		format = BF.QRCode
+		text = "I have the best words."
+		img = zxingcpp.write_barcode(format, text, quiet_zone=10)
+		img = np.array(img)
+
+		self.check_res(zxingcpp.read_barcode(img), format, text)
+		self.check_res(zxingcpp.read_barcode(img[5:40,5:40]), format, text)
 
 	@unittest.skipIf(not has_pil, "need PIL for read/write tests")
 	def test_write_read_cycle_pil(self):
@@ -75,15 +113,33 @@ class TestReadWrite(unittest.TestCase):
 		self.check_res(zxingcpp.read_barcode(img.convert("1")), format, text)
 		self.check_res(zxingcpp.read_barcode(img.convert("CMYK")), format, text)
 
+	@unittest.skipIf(not has_cv2, "need cv2 for read/write tests")
+	def test_write_read_cycle_cv2(self):
+		import cv2, numpy
+		format = BF.QRCode
+		text = "I have the best words."
+		img = zxingcpp.write_barcode(format, text, quiet_zone=10)
+		img = cv2.cvtColor(numpy.array(img), cv2.COLOR_GRAY2BGR )
+
+		self.check_res(zxingcpp.read_barcode(img), format, text)
+		self.check_res(zxingcpp.read_barcode(img[5:40,5:40,:]), format, text)
+
 	def test_read_invalid_type(self):
 		self.assertRaisesRegex(
-			TypeError, "Unsupported type <class 'str'>. Expect a PIL Image or numpy array", zxingcpp.read_barcode, "foo"
+			TypeError, "Invalid input: <class 'str'> does not support the buffer protocol.", zxingcpp.read_barcode, "foo"
 		)
 
-	def test_read_invalid_numpy_array_channels(self):
+	def test_read_invalid_numpy_array_channels_buffer(self):
+		self.assertRaisesRegex(
+			ValueError, "Unsupported number of channels for buffer: 4", zxingcpp.read_barcode,
+			self.zeroes((100, 100, 4))
+		)
+
+	@unittest.skipIf(not has_numpy, "need numpy for read/write tests")
+	def test_read_invalid_numpy_array_channels_numpy(self):
 		import numpy as np
 		self.assertRaisesRegex(
-			TypeError, "Unsupported number of channels for numpy array: 4", zxingcpp.read_barcode,
+			ValueError, "Unsupported number of channels for buffer: 4", zxingcpp.read_barcode,
 			np.zeros((100, 100, 4), np.uint8)
 		)
 

@@ -1,29 +1,19 @@
 /*
 * Copyright 2016 Huy Cuong Nguyen
 * Copyright 2016 ZXing authors
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*      http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
 */
+// SPDX-License-Identifier: Apache-2.0
 
 #include "DMWriter.h"
 
 #include "BitMatrix.h"
 #include "ByteArray.h"
+#include "CharacterSet.h"
 #include "DMBitLayout.h"
 #include "DMECEncoder.h"
 #include "DMHighLevelEncoder.h"
 #include "DMSymbolInfo.h"
-#include "DMSymbolShape.h"
+#include "Utf.h"
 
 #include <stdexcept>
 #include <string>
@@ -86,7 +76,8 @@ static BitMatrix EncodeLowLevel(const BitMatrix& placement, const SymbolInfo& sy
 }
 
 Writer::Writer() :
-	_shapeHint(SymbolShape::NONE)
+	_shapeHint(SymbolShape::NONE),
+	_encoding(CharacterSet::Unknown)
 {
 }
 
@@ -102,7 +93,7 @@ Writer::encode(const std::wstring& contents, int width, int height) const
 	}
 
 	//1. step: Data encodation
-	auto encoded = Encode(contents, _shapeHint, _minWidth, _minHeight, _maxWidth, _maxHeight);
+	auto encoded = Encode(contents, _encoding, _shapeHint, _minWidth, _minHeight, _maxWidth, _maxHeight);
 	const SymbolInfo* symbolInfo = SymbolInfo::Lookup(Size(encoded), _shapeHint, _minWidth, _minHeight, _maxWidth, _maxHeight);
 	if (symbolInfo == nullptr) {
 		throw std::invalid_argument("Can't find a symbol arrangement that matches the message. Data codewords: " + std::to_string(encoded.size()));
@@ -117,8 +108,13 @@ Writer::encode(const std::wstring& contents, int width, int height) const
 	//4. step: low-level encoding
 	BitMatrix result = EncodeLowLevel(symbolData, *symbolInfo);
 
-	//5. step: scale-up to requested size, minimum required quite zone is 1
-	return Inflate(std::move(result), width, height, _quiteZone);
+	//5. step: scale-up to requested size, minimum required quiet zone is 1
+	return Inflate(std::move(result), width, height, _quietZone);
+}
+
+BitMatrix Writer::encode(const std::string& contents, int width, int height) const
+{
+	return encode(FromUtf8(contents), width, height);
 }
 
 } // namespace ZXing::DataMatrix
