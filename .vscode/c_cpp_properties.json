@@ -2,32 +2,38 @@
   "env": {
     "includePath": [
       "${default}",
+      "${workspaceFolder}/node_modules/node-addon-api",
       "${workspaceFolder}/deps/zxing-cpp/core/src"
     ],
-    "defines": []
+    "defines": [
+      // "NAPI_DISABLE_CPP_EXCEPTIONS",
+      // "NODE_ADDON_API_ENABLE_MAYBE"
+    ],
+    "clPath": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.37.32822\\bin\\Hostx64\\x64\\cl.exe",
+    "gccPath": "/usr/bin/gcc",
+    "clangPath": "/usr/bin/clang"
   },
   "configurations": [
     {
       "name": "Win32",
       "defines": ["${defines}", "_DEBUG", "UNICODE", "_UNICODE", "_CRT_SECURE_NO_WARNINGS"],
-      "compilerPath": "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Tools\\MSVC\\14.29.30133\\bin\\Hostx64\\x64\\cl.exe",
+      "compilerPath": "${clPath}",
       "windowsSdkVersion": "10.0.19041.0",
-      "intelliSenseMode": "windows-msvc-x64",
-      "cStandard": "c99",
-      "cppStandard": "c++11",
+      "intelliSenseMode": "msvc-x64",
+      "cStandard": "c11",
+      "cppStandard": "c++17",
       "includePath": [
         "${includePath}",
-        "${env:HOME}/AppData/Local/node-gyp/Cache/16.13.0/include/node",
-        "${workspaceFolder}/node_modules/node-addon-api"
+        "${env:USERPROFILE}/AppData/Local/node-gyp/Cache/20.8.0/include/node"
       ]
     },
     {
       "name": "Linux",
       "defines": ["${defines}"],
-      "compilerPath": "/usr/bin/gcc",
-      "cStandard": "c99",
-      "cppStandard": "c++11",
-      "intelliSenseMode": "linux-gcc-x64",
+      "compilerPath": "${gccPath}",
+      "cStandard": "c11",
+      "cppStandard": "c++17",
+      "intelliSenseMode": "gcc-x64",
       "browse": {
         "path": [
           "${workspaceFolder}"
@@ -35,49 +41,67 @@
         "limitSymbolsToIncludedHeaders": true,
         "databaseFilename": ""
       },
-      "includePath": [
-        "${includePath}",
-        "${env:HOME}/.local/cache/node-gyp/16.13.0/include/node",
-        "${workspaceFolder}/node_modules/node-addon-api"
-      ]
+      "includePath": ["${includePath}"]
     },
     {
       "name": "macOS",
-      "includePath": [
-        "${includePath}",
-        "${env:HOME}/.local/cache/node-gyp/16.13.0/include/node",
-        "${workspaceFolder}/node_modules/node-addon-api"
-      ],
       "defines": ["${defines}"],
       "macFrameworkPath": ["/System/Library/Frameworks", "/Library/Frameworks"],
-      "compilerPath": "/usr/bin/clang",
-      "cStandard": "c99",
-      "cppStandard": "c++11",
-      "intelliSenseMode": "macos-clang-x64"
+      "compilerPath": "${clangPath}",
+      "cStandard": "c11",
+      "cppStandard": "c++17",
+      "intelliSenseMode": "${default}",
+      "includePath": [
+        "${includePath}",
+        "${env:HOME}/Library/Caches/node-gyp/20.10.0/include/node"
+      ]
     },
     {
       "name": "Emscripten",
-      "defines": ["${defines}"],
+      "defines": ["${defines}", "__wasm__", "__EMSCRIPTEN_PTHREADS__", "NAPI_VERSION=2147483647"],
       "compilerPath": "${env:EMSDK}/upstream/emscripten/emcc",
-      "intelliSenseMode": "clang-x86",
+      "intelliSenseMode": "linux-clang-x86",
       "cStandard": "c11",
       "cppStandard": "c++17",
-      "includePath": [
-        "${includePath}",
-        "${workspaceFolder}/node_modules/@tybys/emnapi/include"
-      ]
+      "includePath": ["${includePath}"]
     },
     {
-      "name": "Emscripten (Win32)",
+      "name": "Win32 Emscripten",
+      "defines": ["${defines}", "__wasm__", "__EMSCRIPTEN_PTHREADS__", "NAPI_VERSION=2147483647"],
+      "compilerPath": "${env:EMSDK}\\upstream\\emscripten\\emcc.bat",
+      "intelliSenseMode": "linux-clang-x86",
+      "cStandard": "c11",
+      "cppStandard": "c++17",
+      "includePath": ["${includePath}"]
+    },
+    {
+      "name": "WASI",
       "defines": ["${defines}"],
-      "compilerPath": "${env:EMSDK}/upstream/emscripten/emcc.bat",
+      "compilerPath": "${env:WASI_SDK_PATH}/bin/clang",
       "intelliSenseMode": "clang-x86",
       "cStandard": "c11",
       "cppStandard": "c++17",
-      "includePath": [
-        "${includePath}",
-        "${workspaceFolder}/node_modules/@tybys/emnapi/include"
-      ]
+      "includePath": ["${includePath}"]
+    },
+    {
+      "name": "WASI-THREADS",
+      "defines": ["${defines}", "_REENTRANT"],
+      "compilerPath": "${env:WASI_SDK_PATH}/bin/clang",
+      "intelliSenseMode": "clang-x86",
+      "cStandard": "c11",
+      "cppStandard": "c++17",
+      "includePath": ["${includePath}"],
+      "compilerArgs": ["--target=wasm32-wasi-threads"]
+    },
+    {
+      "name": "WASM32",
+      "defines": ["${defines}", "PAGESIZE=65536"],
+      "compilerPath": "${env:WASI_SDK_PATH}/bin/clang",
+      "intelliSenseMode": "clang-x86",
+      "cStandard": "c11",
+      "cppStandard": "c++17",
+      "includePath": ["${includePath}"],
+      "compilerArgs": ["--target=wasm32"]
     }
   ],
   "version": 4
