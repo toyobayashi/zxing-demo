@@ -8,8 +8,8 @@
     "cmake:win": "emcmake cmake -DCMAKE_BUILD_TYPE=Release -G \"MinGW Makefiles\" -DCMAKE_MAKE_PROGRAM=make -DBUILD_SHARED_LIBS=OFF -H. -Bbuild",
     "cmake:unix": "emcmake cmake -DCMAKE_BUILD_TYPE=Release -G \"Unix Makefiles\" -DCMAKE_MAKE_PROGRAM=make -DBUILD_SHARED_LIBS=OFF -H. -Bbuild",
     "cmake:build": "cmake --build build && node ./script/copy.js",
-    "gyp:rebuild": "node-gyp rebuild",
-    "gyp:build": "node-gyp build",
+    "gyp:rebuild": "node-gyp rebuild --verbose",
+    "gyp:build": "node-gyp build --verbose",
     "test": "node ./test/index.js"
   },
   "keywords": [],
@@ -21,6 +21,6 @@
     "@tybys/emwrap": "^2.2.2",
     "fs-extra": "^10.1.0",
     "jimp": "^0.16.1",
-    "node-addon-api": "5.0.0"
+    "node-addon-api": "*"
   }
 }

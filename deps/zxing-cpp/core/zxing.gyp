@@ -1,72 +1,33 @@
 {
-  'variables': { 'target_arch%': 'ia32' }, # default for node v0.6.x
-
-  'target_defaults': {
-    'default_configuration': 'Debug',
-    'configurations': {
-      'Debug': {
-        'defines': [ 'DEBUG', '_DEBUG' ],
-        'msvs_settings': {
-          'VCCLCompilerTool': {
-            'RuntimeLibrary': 1, # static debug
-          },
-        },
-      },
-      'Release': {
-        'defines': [ 'NDEBUG' ],
-        'msvs_settings': {
-          'VCCLCompilerTool': {
-            'RuntimeLibrary': 0, # static release
-          },
-        },
-      }
-    },
-    'msvs_settings': {
-      'VCCLCompilerTool': {
-        'ExceptionHandling': 1,
-        'AdditionalOptions': ['-std:c++17', '/EHsc'],
-      },
-      'VCLinkerTool': {
-        'GenerateDebugInformation': 'true',
-      },
-    },
-
-    'cflags_cc': [
-      '-std=c++17'
-    ],
-
-    'defines': [
-    ],
-    'include_dirs': [
-      'src',
-    ],
-    'conditions': [
-      ['OS=="mac"', {
-        'xcode_settings': {
-          'CLANG_CXX_LANGUAGE_STANDARD': 'c++17',
-        }
-      }],
-      ['OS=="win"', {
-        'defines': [
-        ]
-      }]
-    ],
-  },
-
   'targets': [
-
-    # zxingcore
     {
       'target_name': 'zxingcore',
-      'product_prefix': 'lib',
       'type': 'static_library',
+      'msvs_settings': {
+        'VCCLCompilerTool': {
+          'ExceptionHandling': 1,
+          'EnablePREfast': 'true',
+          'AdditionalOptions': ['-std:c++17'],
+        },
+      },
+      'xcode_settings': {
+        'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
+        'CLANG_CXX_LANGUAGE_STANDARD': 'c++17',
+        'CLANG_CXX_LIBRARY': 'libc++',
+      },
+      'cflags!': [ '-fno-exceptions' ],
+      'cflags_cc!': [ '-fno-exceptions' ],
+      'cflags_cc': [
+        '-std=c++17'
+      ],
       'conditions': [
         ['OS=="win"', {
           'defines': [
             '_SCL_SECURE_NO_WARNINGS',
             '_CRT_SECURE_NO_WARNINGS',
             '_CRT_NONSTDC_NO_WARNINGS',
-            'NOMINMAX'
+            'NOMINMAX',
+            '_HAS_EXCEPTIONS=1'
           ]
         }]
       ],
@@ -186,6 +147,9 @@
         'src/textcodec/GBTextEncoder.cpp',
         'src/textcodec/JPTextEncoder.cpp',
         'src/textcodec/KRTextEncoder.cpp',
+      ],
+      'include_dirs': [
+        'src',
       ],
       'direct_dependent_settings': {
         'include_dirs': [
