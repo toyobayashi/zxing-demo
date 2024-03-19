@@ -9,16 +9,25 @@ class FileInput {
   constructor (container) {
     this._handler = []
     this.domNode = document.createElement('div')
-    const input = this._input = document.createElement('input')
-    input.type = 'file'
 
-    input.addEventListener('change', () => {
+    const label = document.createElement('label')
+    label.innerText = 'Select QRCode Image'
+    const fileInput = this._input = document.createElement('input')
+    fileInput.id = 'imageInput'
+    const selectImageButton = document.createElement('button')
+    label.htmlFor = fileInput.id
+    selectImageButton.appendChild(label)
+    fileInput.style.display = 'none'
+    fileInput.type = 'file'
+
+    fileInput.addEventListener('change', () => {
       this._handler.slice(0).forEach(fn => {
-        fn(input.files)
+        fn(fileInput.files)
       })
     })
 
-    this.domNode.appendChild(input)
+    this.domNode.appendChild(selectImageButton)
+    this.domNode.appendChild(fileInput)
     container.appendChild(this.domNode)
   }
 
@@ -39,6 +48,8 @@ class ImageCanvas {
   constructor (container) {
     this.domNode = document.createElement('div')
     this._canvas = document.createElement('canvas')
+    this._canvas.width = 800
+    this._canvas.height = 600
     this.domNode.appendChild(this._canvas)
     this.domNode.style.display = 'inline-block'
     this.domNode.style.lineHeight = '0'
@@ -61,27 +72,33 @@ class TextResult {
 
 class TextInput {
   constructor (container) {
-    this.domNode = document.createElement('div')
-    this._input = document.createElement('textarea')
-    this._input.style.width = '302px'
-    this._input.style.boxSizing = 'border-box'
-    this.domNode.appendChild(this._input)
+    // this.domNode = document.createElement('div')
+    this.domNode = document.createElement('textarea')
+    this.domNode.style.width = '302px'
+    this.domNode.style.boxSizing = 'border-box'
+    this.domNode.style.verticalAlign = 'bottom'
+    this.domNode.style.marginRight = '20px'
+    // this.domNode.appendChild(this.domNode)
     container.appendChild(this.domNode)
+  }
+
+  get value () {
+    return this.domNode.value
   }
 }
 
 class ConfirmButton {
   constructor (container) {
     this._handler = []
-    this.domNode = document.createElement('div')
-    this._btn = document.createElement('button')
-    this._btn.innerHTML = 'Generate'
-    this._btn.addEventListener('click', (e) => {
+    // this.domNode = document.createElement('div')
+    this.domNode = document.createElement('button')
+    this.domNode.innerHTML = 'Generate'
+    this.domNode.addEventListener('click', (e) => {
       this._handler.slice(0).forEach(fn => {
-        fn.call(this._btn, e)
+        fn.call(this.domNode, e)
       })
     })
-    this.domNode.appendChild(this._btn)
+    // this.domNode.appendChild(this._btn)
     container.appendChild(this.domNode)
   }
 
@@ -107,8 +124,8 @@ class ResultCanvas {
     this.domNode.style.border = '1px solid #000'
     this.domNode.style.marginTop = '16px'
 
-    this._canvas.width = 300
-    this._canvas.height = 300
+    this._canvas.width = 400
+    this._canvas.height = 400
     this.domNode.appendChild(this._canvas)
     container.appendChild(this.domNode)
   }
@@ -118,19 +135,14 @@ class ResultCanvas {
   }
 }
 
-class App {
+class DecodeWidget {
   constructor (container) {
     this.domNode = document.createElement('div')
-
+    container.appendChild(this.domNode)
+    this.domNode.style.textAlign = 'center'
     this._InputEl = new FileInput(this.domNode)
     this._canvasEl = new ImageCanvas(this.domNode)
     this._resultEl = new TextResult(this.domNode)
-
-    this.domNode.appendChild(document.createElement('hr'))
-
-    this._textInput = new TextInput(this.domNode)
-    this._genButton = new ConfirmButton(this.domNode)
-    this._resultCanvas = new ResultCanvas(this.domNode)
 
     this._InputEl.onDidChange((files) => {
       const f = files[0]
@@ -138,34 +150,6 @@ class App {
         this.scanImage(f)
       }
     })
-
-    this._genButton.onDidClick(async () => {
-      const { Module } = await modulePromise
-      const canvas = this._resultCanvas.canvas
-      let matrix
-      try {
-        matrix = Module.emnapiExports.generateMatrix(this._textInput._input.value, 'QRCode', 'UTF-8', 10, canvas.width, canvas.height, -1)
-      } catch (err) {
-        console.error(err)
-        window.alert(err.message)
-        return
-      }
-      const dataPtr = matrix.getDataAddress()
-      const dataSize = matrix.getDataSize()
-      console.log(matrix.getWidth(), matrix.getHeight(), dataPtr, dataSize)
-      // const buffer = matrix.getBuffer()
-      const buffer = new Uint8Array(Module.HEAPU8.buffer, dataPtr, dataSize)
-      const ctx = canvas.getContext('2d')
-      const imageData = ctx.createImageData(canvas.width, canvas.height)
-      const pixelSize = canvas.width * canvas.height
-      for (let i = 0; i < pixelSize; i++) {
-        imageData.data.set([buffer[i], buffer[i], buffer[i], 255], i * 4)
-      }
-      ctx.putImageData(imageData, 0, 0)
-      matrix.destroy()
-    })
-
-    container.appendChild(this.domNode)
   }
 
   readFileAsDataURL (file) {
@@ -266,4 +250,63 @@ class App {
   }
 }
 
-new App(document.body)
+class EncodeWidget {
+  constructor (container) {
+    this.domNode = document.createElement('div')
+    this.domNode.style.textAlign = 'center'
+    this.domNode.style.marginLeft = '60px'
+    container.appendChild(this.domNode)
+
+    const inputWrap = document.createElement('div')
+    this.domNode.appendChild(inputWrap)
+    this._textInput = new TextInput(inputWrap)
+    this._genButton = new ConfirmButton(inputWrap)
+
+    this._resultCanvas = new ResultCanvas(this.domNode)
+
+    this._genButton.onDidClick(async () => {
+      const { Module } = await modulePromise
+      const canvas = this._resultCanvas.canvas
+      let matrix
+      try {
+        matrix = Module.emnapiExports.generateMatrix(this._textInput.value, 'QRCode', 'UTF-8', 10, canvas.width, canvas.height, -1)
+      } catch (err) {
+        console.error(err)
+        window.alert(err.message)
+        return
+      }
+      const dataPtr = matrix.getDataAddress()
+      const dataSize = matrix.getDataSize()
+      console.log(matrix.getWidth(), matrix.getHeight(), dataPtr, dataSize)
+      // const buffer = matrix.getBuffer()
+      const buffer = new Uint8Array(Module.HEAPU8.buffer, dataPtr, dataSize)
+      const ctx = canvas.getContext('2d')
+      const imageData = ctx.createImageData(canvas.width, canvas.height)
+      const pixelSize = canvas.width * canvas.height
+      for (let i = 0; i < pixelSize; i++) {
+        imageData.data.set([buffer[i], buffer[i], buffer[i], 255], i * 4)
+      }
+      ctx.putImageData(imageData, 0, 0)
+      matrix.destroy()
+    })
+  }
+}
+
+class App {
+  static main () {
+    new App(document.body)
+  }
+
+  constructor (container) {
+    this.domNode = document.createElement('div')
+    this.domNode.style.display = 'flex'
+    this.domNode.style.justifyContent = 'center'
+
+    this._decodeWidget = new DecodeWidget(this.domNode)
+    this._encodeWidget = new EncodeWidget(this.domNode)
+
+    container.appendChild(this.domNode)
+  }
+}
+
+App.main()
