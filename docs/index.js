@@ -1,14 +1,18 @@
 /// <reference path="zxingwasm.d.ts" />
 
+import { Component, EventEmitter } from './dom.js'
+
 const modulePromise = zxingwasm().then(Module => {
   Module.emnapiExports = Module.emnapiInit({ context: emnapi.getDefaultContext() })
   return { Module }
 })
 
-class FileInput {
+class FileInput extends Component {
   constructor (container) {
-    this._handler = []
+    super()
     this.domNode = document.createElement('div')
+    this._changeEvent = new EventEmitter()
+    this.onDidChange = this._changeEvent.event
 
     const label = document.createElement('label')
     label.innerText = 'Select QRCode Image'
@@ -20,32 +24,19 @@ class FileInput {
     fileInput.style.display = 'none'
     fileInput.type = 'file'
 
-    fileInput.addEventListener('change', () => {
-      this._handler.slice(0).forEach(fn => {
-        fn(fileInput.files)
-      })
+    this._addEventListener(fileInput, 'change', (e) => {
+      this._changeEvent.fire(e)
     })
 
     this.domNode.appendChild(selectImageButton)
     this.domNode.appendChild(fileInput)
     container.appendChild(this.domNode)
   }
-
-  onDidChange (fn) {
-    if (this._handler.indexOf(fn) !== -1) return
-    this._handler.push(fn)
-  }
-
-  dispose () {
-    this._handler.slice(0).forEach(fn => {
-      this._input.removeEventListener('change', fn)
-    })
-    this._handler.length = 0
-  }
 }
 
-class ImageCanvas {
+class ImageCanvas extends Component {
   constructor (container) {
+    super()
     this.domNode = document.createElement('div')
     this._canvas = document.createElement('canvas')
     this._canvas.width = 800
@@ -63,15 +54,17 @@ class ImageCanvas {
   }
 }
 
-class TextResult {
+class TextResult extends Component {
   constructor (container) {
+    super()
     this.domNode = document.createElement('p')
     container.appendChild(this.domNode)
   }
 }
 
-class TextInput {
+class TextInput extends Component {
   constructor (container) {
+    super()
     // this.domNode = document.createElement('div')
     this.domNode = document.createElement('textarea')
     this.domNode.style.width = '302px'
@@ -87,36 +80,25 @@ class TextInput {
   }
 }
 
-class ConfirmButton {
+class ConfirmButton extends Component {
   constructor (container) {
-    this._handler = []
+    super()
+    this._clickEvent = new EventEmitter()
+    this.onDidClick = this._clickEvent.event
     // this.domNode = document.createElement('div')
     this.domNode = document.createElement('button')
     this.domNode.innerHTML = 'Generate'
-    this.domNode.addEventListener('click', (e) => {
-      this._handler.slice(0).forEach(fn => {
-        fn.call(this.domNode, e)
-      })
+    this._addEventListener(this.domNode, 'click', (e) => {
+      this._clickEvent.fire(e)
     })
     // this.domNode.appendChild(this._btn)
     container.appendChild(this.domNode)
   }
-
-  onDidClick (fn) {
-    if (this._handler.indexOf(fn) !== -1) return
-    this._handler.push(fn)
-  }
-
-  dispose () {
-    this._handler.slice(0).forEach(fn => {
-      this._input.removeEventListener('click', fn)
-    })
-    this._handler.length = 0
-  }
 }
 
-class ResultCanvas {
+class ResultCanvas extends Component {
   constructor (container) {
+    super()
     this.domNode = document.createElement('div')
     this._canvas = document.createElement('canvas')
     this.domNode.style.display = 'inline-block'
@@ -135,21 +117,22 @@ class ResultCanvas {
   }
 }
 
-class DecodeWidget {
+class DecodeWidget extends Component {
   constructor (container) {
+    super()
     this.domNode = document.createElement('div')
     container.appendChild(this.domNode)
     this.domNode.style.textAlign = 'center'
-    this._InputEl = new FileInput(this.domNode)
-    this._canvasEl = new ImageCanvas(this.domNode)
-    this._resultEl = new TextResult(this.domNode)
+    this._InputEl = this._register(new FileInput(this.domNode))
+    this._canvasEl = this._register(new ImageCanvas(this.domNode))
+    this._resultEl = this._register(new TextResult(this.domNode))
 
-    this._InputEl.onDidChange((files) => {
+    this._register(this._InputEl.onDidChange((files) => {
       const f = files[0]
       if (f && (f.name.endsWith('.png') || f.name.endsWith('.jpeg') || f.name.endsWith('.jpg'))) {
         this.scanImage(f)
       }
-    })
+    }))
   }
 
   readFileAsDataURL (file) {
@@ -250,8 +233,9 @@ class DecodeWidget {
   }
 }
 
-class EncodeWidget {
+class EncodeWidget extends Component {
   constructor (container) {
+    super()
     this.domNode = document.createElement('div')
     this.domNode.style.textAlign = 'center'
     this.domNode.style.marginLeft = '60px'
@@ -259,12 +243,12 @@ class EncodeWidget {
 
     const inputWrap = document.createElement('div')
     this.domNode.appendChild(inputWrap)
-    this._textInput = new TextInput(inputWrap)
-    this._genButton = new ConfirmButton(inputWrap)
+    this._textInput = this._register(new TextInput(inputWrap))
+    this._genButton = this._register(new ConfirmButton(inputWrap))
 
-    this._resultCanvas = new ResultCanvas(this.domNode)
+    this._resultCanvas = this._register(new ResultCanvas(this.domNode))
 
-    this._genButton.onDidClick(async () => {
+    this._register(this._genButton.onDidClick(async () => {
       const { Module } = await modulePromise
       const canvas = this._resultCanvas.canvas
       let matrix
@@ -288,22 +272,23 @@ class EncodeWidget {
       }
       ctx.putImageData(imageData, 0, 0)
       matrix.destroy()
-    })
+    }))
   }
 }
 
-class App {
+class App extends Component {
   static main () {
     new App(document.body)
   }
 
   constructor (container) {
+    super()
     this.domNode = document.createElement('div')
     this.domNode.style.display = 'flex'
     this.domNode.style.justifyContent = 'center'
 
-    this._decodeWidget = new DecodeWidget(this.domNode)
-    this._encodeWidget = new EncodeWidget(this.domNode)
+    this._decodeWidget = this._register(new DecodeWidget(this.domNode))
+    this._encodeWidget = this._register(new EncodeWidget(this.domNode))
 
     container.appendChild(this.domNode)
   }
