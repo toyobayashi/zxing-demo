@@ -2,6 +2,19 @@
 
 import { Component, EventEmitter } from './dom.js'
 
+function throttle (fn, wait) {
+  let last = 0
+  return function () {
+    const now = Date.now()
+    if (now - last >= wait) {
+      last = now
+      const result = fn.apply(this, arguments)
+      return { invoked: true, result }
+    }
+    return { invoked: false }
+  }
+}
+
 let Module
 
 class DecodeWidgetModel {
@@ -212,11 +225,22 @@ class DecodeWidget extends Component {
     this.decodeModel.cameraOpen.then(stream => {
       this.decodeModel.cameraOpen = stream
       this._videoEl.srcObject = stream
+      const scanImage = throttle(() => {
+        return this.scanImage()
+      }, 500)
       const callback = () => {
         if (this.decodeModel.cameraOpen) {
           this.showFrame()
-          const result = this.scanImage()
-          if (result.error || result.format !== 'None') {
+          let invoked, result
+          try {
+            const ret = scanImage()
+            invoked = ret.invoked
+            result = ret.result
+          } catch (err) {
+            this.stopCapture()
+            return
+          }
+          if (invoked && (result.error || result.format !== 'None')) {
             this.showScanResult(result)
             this.stopCapture()
           } else {
@@ -264,12 +288,12 @@ class DecodeWidget extends Component {
     const u8arr = new Uint8Array(Module.HEAPU8.buffer, buffer, data.length)
     let result
     try {
-      result = Module.emnapiExports.readFromRawImage(u8arr, canvas.width, canvas.height, true, 'QRCode')
+      const format = 'Aztec|Codabar|Code39|Code93|Code128|DataBar|DataBarExpanded|DataMatrix|EAN-8|EAN-13|ITF|MaxiCode|MicroQRCode|PDF417|QRCode|rMQRCode|UPC-A|UPC-E|Linear-Codes|Matrix-Codes'
+      result = Module.emnapiExports.readFromRawImage(u8arr, canvas.width, canvas.height, true, format)
     } catch (err) {
-      console.error(err)
       window.alert(err.message)
       Module._free(buffer)
-      return
+      throw err
     }
     Module._free(buffer)
 
