@@ -2,23 +2,38 @@
 
 import { Component, EventEmitter } from './dom.js'
 
-const modulePromise = zxingwasm().then(Module => {
-  Module.emnapiExports = Module.emnapiInit({ context: emnapi.getDefaultContext() })
-  return { Module }
-})
+let Module
+
+class DecodeWidgetModel {
+  constructor () {
+    this._cameraOpen = false
+    this._openChangeEvent = new EventEmitter()
+    this.onDidOpenChange = this._openChangeEvent.event
+  }
+
+  get cameraOpen () { return this._cameraOpen }
+  set cameraOpen (value) {
+    this._cameraOpen = value
+    this._openChangeEvent.fire(value)
+  }
+}
 
 class FileInput extends Component {
-  constructor (container) {
+  constructor (container, model) {
     super()
     this.domNode = document.createElement('div')
     this._changeEvent = new EventEmitter()
     this.onDidChange = this._changeEvent.event
+    this._clickEvent = new EventEmitter()
+    this.onDidCaptureClick = this._clickEvent.event
 
     const label = document.createElement('label')
     label.innerText = 'Select QRCode Image'
     const fileInput = this._input = document.createElement('input')
     fileInput.id = 'imageInput'
     const selectImageButton = document.createElement('button')
+    selectImageButton.setAttribute('disabled', '')
+    Module.then(() => { selectImageButton.removeAttribute('disabled') })
     label.htmlFor = fileInput.id
     selectImageButton.appendChild(label)
     fileInput.style.display = 'none'
@@ -28,8 +43,34 @@ class FileInput extends Component {
       this._changeEvent.fire(e)
     })
 
+    const recordButton = document.createElement('button')
+    recordButton.innerText = 'Start Capture'
+    recordButton.setAttribute('disabled', '')
+    Module.then(() => { recordButton.removeAttribute('disabled') })
+
+    this._register(model.onDidOpenChange((value) => {
+      const opening = value instanceof Promise
+      if (opening) {
+        selectImageButton.setAttribute('disabled', '')
+        recordButton.setAttribute('disabled', '')
+      } else {
+        recordButton.removeAttribute('disabled')
+        if (value) {
+          selectImageButton.setAttribute('disabled', '')
+        } else {
+          selectImageButton.removeAttribute('disabled')
+        }
+      }
+      recordButton.innerText = !value || opening ? 'Start Capture' : 'Stop Capture'
+    }))
+
+    this._addEventListener(recordButton, 'click', (e) => {
+      this._clickEvent.fire(e)
+    })
+
     this.domNode.appendChild(selectImageButton)
     this.domNode.appendChild(fileInput)
+    this.domNode.appendChild(recordButton)
     container.appendChild(this.domNode)
   }
 }
@@ -39,8 +80,7 @@ class ImageCanvas extends Component {
     super()
     this.domNode = document.createElement('div')
     this._canvas = document.createElement('canvas')
-    this._canvas.width = 800
-    this._canvas.height = 600
+    this.resetSize()
     this.domNode.appendChild(this._canvas)
     this.domNode.style.display = 'inline-block'
     this.domNode.style.lineHeight = '0'
@@ -51,6 +91,16 @@ class ImageCanvas extends Component {
 
   get canvas () {
     return this._canvas
+  }
+
+  resetSize () {
+    this._canvas.width = 800
+    this._canvas.height = 600
+  }
+
+  clear () {
+    const ctx = this._canvas.getContext("2d")
+    ctx.clearRect(0, 0, this._canvas.width, this._canvas.height)
   }
 }
 
@@ -87,6 +137,8 @@ class ConfirmButton extends Component {
     this.onDidClick = this._clickEvent.event
     // this.domNode = document.createElement('div')
     this.domNode = document.createElement('button')
+    this.domNode.setAttribute('disabled', '')
+    Module.then(() => { this.domNode.removeAttribute('disabled') })
     this.domNode.innerHTML = 'Generate'
     this._addEventListener(this.domNode, 'click', (e) => {
       this._clickEvent.fire(e)
@@ -118,21 +170,73 @@ class ResultCanvas extends Component {
 }
 
 class DecodeWidget extends Component {
-  constructor (container) {
+  constructor (container, model) {
     super()
+    this.decodeModel = model
     this.domNode = document.createElement('div')
     container.appendChild(this.domNode)
     this.domNode.style.textAlign = 'center'
-    this._InputEl = this._register(new FileInput(this.domNode))
+    this._InputEl = this._register(new FileInput(this.domNode, model))
     this._canvasEl = this._register(new ImageCanvas(this.domNode))
     this._resultEl = this._register(new TextResult(this.domNode))
+    this._videoEl = document.createElement('video')
+    this._videoEl.autoplay = true
+    this._videoEl.style.display = 'none'
+    this.domNode.appendChild(this._videoEl)
 
-    this._register(this._InputEl.onDidChange((files) => {
-      const f = files[0]
+    this._register(this._InputEl.onDidChange(async (e) => {
+      const f = e.target.files[0]
       if (f && (f.name.endsWith('.png') || f.name.endsWith('.jpeg') || f.name.endsWith('.jpg'))) {
-        this.scanImage(f)
+        const dataUrl = await this.readFileAsDataURL(f)
+        const img = await this.getImage(dataUrl, f.type)
+        this.showImage(img)
+        const result = this.scanImage()
+        this.showScanResult(result)
       }
     }))
+    this._register(this._InputEl.onDidCaptureClick(() => {
+      if (model.cameraOpen instanceof Promise) return
+      if (!model.cameraOpen) {
+        this.startCapture()
+      } else {
+        this.stopCapture()
+        this._canvasEl.clear()
+      }
+    }))
+  }
+
+  startCapture () {
+    this._resultEl.domNode.innerHTML = ''
+    this._canvasEl.resetSize()
+    this.decodeModel.cameraOpen = navigator.mediaDevices.getUserMedia({ audio: false, video: true })
+    this.decodeModel.cameraOpen.then(stream => {
+      this.decodeModel.cameraOpen = stream
+      this._videoEl.srcObject = stream
+      const callback = () => {
+        if (this.decodeModel.cameraOpen) {
+          this.showFrame()
+          const result = this.scanImage()
+          if (result.error || result.format !== 'None') {
+            this.showScanResult(result)
+            this.stopCapture()
+          } else {
+            requestAnimationFrame(callback)
+          }
+        }
+      }
+      requestAnimationFrame(callback)
+    }, err => {
+      window.alert(err.message)
+    })
+  }
+
+  stopCapture () {
+    /** @type {MediaStream} */
+    const stream = this._videoEl.srcObject
+    const tracks = stream.getTracks()
+    tracks.forEach((track) => track.stop())
+    this._videoEl.srcObject = null
+    this.decodeModel.cameraOpen = false
   }
 
   readFileAsDataURL (file) {
@@ -148,14 +252,10 @@ class DecodeWidget extends Component {
     })
   }
 
-  async scanImage (file) {
-    const dataUrl = await this.readFileAsDataURL(file)
-    const img = await this.getImage(dataUrl, file.type)
-    const { Module } = await modulePromise
-    this.showImage(img)
+  scanImage () {
     /** @type {HTMLCanvasElement} */
     const canvas = this._canvasEl.canvas
-    const ctx = canvas.getContext("2d")
+    const ctx = canvas.getContext("2d", { willReadFrequently: true })
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
     const data = imageData.data
 
@@ -164,7 +264,7 @@ class DecodeWidget extends Component {
     const u8arr = new Uint8Array(Module.HEAPU8.buffer, buffer, data.length)
     let result
     try {
-      result = Module.emnapiExports.readFromRawImage(u8arr, img.width, img.height, true, 'QRCode')
+      result = Module.emnapiExports.readFromRawImage(u8arr, canvas.width, canvas.height, true, 'QRCode')
     } catch (err) {
       console.error(err)
       window.alert(err.message)
@@ -173,12 +273,7 @@ class DecodeWidget extends Component {
     }
     Module._free(buffer)
 
-    console.log(JSON.stringify(result, null, 2))
-
-    if (result.position) {
-      this.showPosition(result.position)
-    }
-    this.showScanResult(result)
+    return result
   }
 
   getImage (dataUrl, fileType) {
@@ -197,6 +292,12 @@ class DecodeWidget extends Component {
       }
       img.src = dataUrl
     })
+  }
+
+  showFrame () {
+    const canvas = this._canvasEl.canvas
+    const ctx = canvas.getContext("2d")
+    ctx.drawImage(this._videoEl, 0, 0, canvas.width, canvas.height)
   }
 
   showImage (img) {
@@ -223,6 +324,9 @@ class DecodeWidget extends Component {
   }
 
   showScanResult (result) {
+    if (result.position) {
+      this.showPosition(result.position)
+    }
     if (result.error) {
       this._resultEl.domNode.innerHTML = '<font color="red">Error: ' + result.error + '</font>'
     } else if (result.format) {
@@ -248,8 +352,7 @@ class EncodeWidget extends Component {
 
     this._resultCanvas = this._register(new ResultCanvas(this.domNode))
 
-    this._register(this._genButton.onDidClick(async () => {
-      const { Module } = await modulePromise
+    this._register(this._genButton.onDidClick(() => {
       const canvas = this._resultCanvas.canvas
       let matrix
       try {
@@ -278,6 +381,11 @@ class EncodeWidget extends Component {
 
 class App extends Component {
   static main () {
+    Module = zxingwasm()
+    Module.then((M) => {
+      Module = M
+      Module.emnapiExports = Module.emnapiInit({ context: emnapi.getDefaultContext() })
+    })
     new App(document.body)
   }
 
@@ -287,7 +395,9 @@ class App extends Component {
     this.domNode.style.display = 'flex'
     this.domNode.style.justifyContent = 'center'
 
-    this._decodeWidget = this._register(new DecodeWidget(this.domNode))
+    const decodeModel = new DecodeWidgetModel()
+
+    this._decodeWidget = this._register(new DecodeWidget(this.domNode, decodeModel))
     this._encodeWidget = this._register(new EncodeWidget(this.domNode))
 
     container.appendChild(this.domNode)
