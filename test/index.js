@@ -4,7 +4,8 @@ const assert = require('assert')
 
 const {
   readFromRawImage,
-  generateMatrix
+  generateMatrix,
+  BarcodeFormat
 } = require('./zxing')
 
 function createImage (data, width, height) {
@@ -23,14 +24,14 @@ function createImage (data, width, height) {
 }
 
 async function main () {
-  const format = 'QRCode'
+  const format = BarcodeFormat.QRCode
   const encoding = 'UTF-8'
   const width = 300
   const height = 300
   const margin = 10
   const eccLevel = -1
 
-  const input = '扫码发大财'
+  const input = '摄像头扫码'
 
   const matrix = generateMatrix(input, format, encoding, margin, width, height, eccLevel)
   const image = await createImage(matrix.getBuffer(), matrix.getWidth(), matrix.getHeight())
@@ -44,7 +45,7 @@ async function main () {
   if (result.error) {
     throw new Error(result.error)
   }
-  console.log(result)
+  console.error(result)
   assert.strictEqual(result.text, input)
 }
 

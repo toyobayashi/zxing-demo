@@ -5,9 +5,9 @@
   "main": "index.js",
   "scripts": {
     "clean": "node ./script/clean.js",
-    "cmake:win": "emcmake cmake -DCMAKE_BUILD_TYPE=Release -G \"MinGW Makefiles\" -DCMAKE_MAKE_PROGRAM=make -DBUILD_SHARED_LIBS=OFF -DEMNAPI_FIND_NODE_ADDON_API=ON -H. -Bbuild",
-    "cmake:unix": "emcmake cmake -DCMAKE_BUILD_TYPE=Release -G \"Unix Makefiles\" -DCMAKE_MAKE_PROGRAM=make -DBUILD_SHARED_LIBS=OFF -DEMNAPI_FIND_NODE_ADDON_API=ON -H. -Bbuild",
-    "cmake:build": "cmake --build build && node ./script/copy.js",
+    "cmake:win": "emcmake cmake -DCMAKE_BUILD_TYPE=Release -G \"MinGW Makefiles\" -DCMAKE_MAKE_PROGRAM=make -DBUILD_SHARED_LIBS=OFF -DEMNAPI_FIND_NODE_ADDON_API=ON -H. -Bbuild/cmake",
+    "cmake:unix": "emcmake cmake -DCMAKE_BUILD_TYPE=Release -G \"Unix Makefiles\" -DCMAKE_MAKE_PROGRAM=make -DBUILD_SHARED_LIBS=OFF -DEMNAPI_FIND_NODE_ADDON_API=ON -H. -Bbuild/cmake",
+    "cmake:build": "cmake --build build/cmake && node ./script/copy.js",
     "gyp:rebuild": "node-gyp rebuild --verbose",
     "gyp:build": "node-gyp build --verbose",
     "test": "node ./test/index.js"

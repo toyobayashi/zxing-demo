@@ -15,6 +15,7 @@ function throttle (fn, wait) {
   }
 }
 
+/** @type {zxingwasm.ModuleInstance} */
 let Module
 
 class DecodeWidgetModel {
@@ -93,8 +94,14 @@ class ImageCanvas extends Component {
     super()
     this.domNode = document.createElement('div')
     this._canvas = document.createElement('canvas')
+    this._positionCanvas = document.createElement('canvas')
+    this._positionCanvas.style.position = 'absolute'
+    this._positionCanvas.style.left = '0'
+    this._positionCanvas.style.top = '0'
     this.resetSize()
     this.domNode.appendChild(this._canvas)
+    this.domNode.appendChild(this._positionCanvas)
+    this.domNode.style.position = 'relative'
     this.domNode.style.display = 'inline-block'
     this.domNode.style.lineHeight = '0'
     this.domNode.style.border = '1px solid #000'
@@ -106,14 +113,44 @@ class ImageCanvas extends Component {
     return this._canvas
   }
 
-  resetSize () {
-    this._canvas.width = 800
-    this._canvas.height = 600
+  resetSize (width, height) {
+    this._canvas.width = width || 800
+    this._canvas.height = height || 600
+    this._positionCanvas.width = width || 800
+    this._positionCanvas.height = height || 600
   }
 
   clear () {
-    const ctx = this._canvas.getContext("2d")
-    ctx.clearRect(0, 0, this._canvas.width, this._canvas.height)
+    this._canvas.getContext("2d").clearRect(0, 0, this._canvas.width, this._canvas.height)
+    this.clearPosition()
+  }
+
+  clearPosition () {
+    this._positionCanvas.getContext("2d").clearRect(0, 0, this._positionCanvas.width, this._positionCanvas.height)
+  }
+
+  drawPosition (position) {
+    this.clearPosition()
+    const [topLeft, topRight, bottomRight, bottomLeft] = position
+    const canvas = this._positionCanvas
+    const ctx = canvas.getContext("2d")
+    ctx.beginPath()
+    ctx.moveTo(topLeft.x, topLeft.y)
+    ctx.lineTo(topRight.x, topRight.y)
+    ctx.lineTo(bottomRight.x, bottomRight.y)
+    ctx.lineTo(bottomLeft.x, bottomLeft.y)
+    ctx.closePath()
+    ctx.strokeStyle = "red"
+    ctx.lineWidth = 3
+    ctx.stroke()
+  }
+
+  showImage (img) {
+    this.clear()
+    const canvas = this._canvas
+    this.resetSize(img.width, img.height)
+    const ctx = canvas.getContext("2d")
+    ctx.drawImage(img, 0, 0)
   }
 }
 
@@ -122,6 +159,10 @@ class TextResult extends Component {
     super()
     this.domNode = document.createElement('p')
     container.appendChild(this.domNode)
+  }
+
+  clear () {
+    this.domNode.innerHTML = ''
   }
 }
 
@@ -202,24 +243,24 @@ class DecodeWidget extends Component {
       if (f && (f.name.endsWith('.png') || f.name.endsWith('.jpeg') || f.name.endsWith('.jpg'))) {
         const dataUrl = await this.readFileAsDataURL(f)
         const img = await this.getImage(dataUrl, f.type)
-        this.showImage(img)
+        this._canvasEl.showImage(img)
         const result = this.scanImage()
         this.showScanResult(result)
       }
     }))
     this._register(this._InputEl.onDidCaptureClick(() => {
       if (model.cameraOpen instanceof Promise) return
+      this._resultEl.clear()
+      this._canvasEl.clear()
       if (!model.cameraOpen) {
         this.startCapture()
       } else {
         this.stopCapture()
-        this._canvasEl.clear()
       }
     }))
   }
 
   startCapture () {
-    this._resultEl.domNode.innerHTML = ''
     this._canvasEl.resetSize()
     this.decodeModel.cameraOpen = navigator.mediaDevices.getUserMedia({ audio: false, video: true })
     this.decodeModel.cameraOpen.then(stream => {
@@ -227,7 +268,7 @@ class DecodeWidget extends Component {
       this._videoEl.srcObject = stream
       const scanImage = throttle(() => {
         return this.scanImage()
-      }, 500)
+      }, 250)
       const callback = () => {
         if (this.decodeModel.cameraOpen) {
           this.showFrame()
@@ -237,12 +278,14 @@ class DecodeWidget extends Component {
             invoked = ret.invoked
             result = ret.result
           } catch (err) {
+            this._resultEl.clear()
             this.stopCapture()
             return
           }
-          if (invoked && (result.error || result.format !== 'None')) {
+          if (invoked && (result.error || result.format !== Module.emnapiExports.BarcodeFormat.None)) {
             this.showScanResult(result)
-            this.stopCapture()
+            requestAnimationFrame(callback)
+            // this.stopCapture()
           } else {
             requestAnimationFrame(callback)
           }
@@ -324,37 +367,14 @@ class DecodeWidget extends Component {
     ctx.drawImage(this._videoEl, 0, 0, canvas.width, canvas.height)
   }
 
-  showImage (img) {
-    const canvas = this._canvasEl.canvas
-    canvas.width = img.width
-    canvas.height = img.height
-    const ctx = canvas.getContext("2d")
-    ctx.drawImage(img, 0, 0)
-  }
-
-  showPosition (position) {
-    const [topLeft, topRight, bottomRight, bottomLeft] = position
-    const canvas = this._canvasEl.canvas
-    const ctx = canvas.getContext("2d")
-    ctx.beginPath()
-    ctx.moveTo(topLeft.x, topLeft.y)
-    ctx.lineTo(topRight.x, topRight.y)
-    ctx.lineTo(bottomRight.x, bottomRight.y)
-    ctx.lineTo(bottomLeft.x, bottomLeft.y)
-    ctx.closePath()
-    ctx.strokeStyle = "red"
-    ctx.lineWidth = 3
-    ctx.stroke()
-  }
-
   showScanResult (result) {
     if (result.position) {
-      this.showPosition(result.position)
+      this._canvasEl.drawPosition(result.position)
     }
     if (result.error) {
       this._resultEl.domNode.innerHTML = '<font color="red">Error: ' + result.error + '</font>'
     } else if (result.format) {
-      this._resultEl.domNode.innerHTML = "Format: <strong>" + result.format + "</strong><pre>" + result.text + "</pre>"
+      this._resultEl.domNode.innerHTML = "Format: <strong>" + Module.emnapiExports.barcodeFormatToString(result.format) + "</strong><pre>" + result.text + "</pre>"
     } else {
       this._resultEl.domNode.innerHTML = "No QRCode found"
     }
@@ -379,8 +399,9 @@ class EncodeWidget extends Component {
     this._register(this._genButton.onDidClick(() => {
       const canvas = this._resultCanvas.canvas
       let matrix
+      const format = Module.emnapiExports.BarcodeFormat.QRCode
       try {
-        matrix = Module.emnapiExports.generateMatrix(this._textInput.value, 'QRCode', 'UTF-8', 10, canvas.width, canvas.height, -1)
+        matrix = Module.emnapiExports.generateMatrix(this._textInput.value, format, 'UTF-8', 10, canvas.width, canvas.height, -1)
       } catch (err) {
         console.error(err)
         window.alert(err.message)
@@ -409,6 +430,7 @@ class App extends Component {
     Module.then((M) => {
       Module = M
       Module.emnapiExports = Module.emnapiInit({ context: emnapi.getDefaultContext() })
+      console.log(Module.emnapiExports)
     })
     new App(document.body)
   }

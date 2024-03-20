@@ -12,16 +12,16 @@
 namespace zxingwasm {
 
 inline Napi::Value ConvertResultToObject(Napi::Env env,
-                                         const std::string& format,
+                                         ZXing::BarcodeFormat format,
                                          const std::string& text,
                                          const std::string& error,
                                          const ZXing::Position& position) {
   Napi::Object js_result = Napi::Object::New(env);
-  js_result["format"] = Napi::String::New(env, format);
+  js_result["format"] = Napi::Number::New(env, static_cast<std::underlying_type_t<ZXing::BarcodeFormat>>(format));
   js_result["text"] = Napi::String::New(env, text);
   js_result["error"] = Napi::String::New(env, error);
 
-  if (error.empty() && !format.empty()) {
+  if (error.empty() && format != ZXing::BarcodeFormat::None) {
     Napi::Array js_position = Napi::Array::New(env, 4);
     Napi::Object js_top_left = Napi::Object::New(env);
     js_top_left["x"] = position[0].x;
@@ -69,7 +69,7 @@ Napi::Value JsReadFromRawImage(const Napi::CallbackInfo& info) {
       width, height, ZXing::ImageFormat::RGBX);
     ZXing::Result result = ZXing::ReadBarcode(view, options);
     return ConvertResultToObject(env,
-      ZXing::ToString(result.format()),
+      result.format(),
       result.text(),
       result.isValid() ? "" : ZXing::ToString(result.error()),
       result.position());
@@ -88,7 +88,7 @@ Napi::Value JsReadFromRawImage(const Napi::CallbackInfo& info) {
 Napi::Value JsGenerateMatrix(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   std::string text = info[0].As<Napi::String>().Utf8Value();
-  std::string format = info[1].As<Napi::String>().Utf8Value();
+  ZXing::BarcodeFormat barcodeFormat = static_cast<ZXing::BarcodeFormat>(info[1].As<Napi::Number>().Int32Value());
   std::string encoding = info[2].As<Napi::String>().Utf8Value();
   int margin = info[3].As<Napi::Number>().Uint32Value();
   int width = info[4].As<Napi::Number>().Uint32Value();
@@ -96,9 +96,8 @@ Napi::Value JsGenerateMatrix(const Napi::CallbackInfo& info) {
   int eccLevel = info[6].As<Napi::Number>().Uint32Value();
 
   try {
-    ZXing::BarcodeFormat barcodeFormat = ZXing::BarcodeFormatFromString(format);
     if (barcodeFormat == ZXing::BarcodeFormat::None) {
-      Napi::TypeError::New(env, "Unsupported format: " + format)
+      Napi::TypeError::New(env, "Unsupported format: None")
         .ThrowAsJavaScriptException();
       return Napi::Value();
     }
@@ -139,6 +138,56 @@ Napi::Value JsGenerateMatrix(const Napi::CallbackInfo& info) {
   }
 }
 
+constexpr const ZXing::BarcodeFormat formats[] = {
+	ZXing::BarcodeFormat::None,
+	ZXing::BarcodeFormat::Aztec,
+	ZXing::BarcodeFormat::Codabar,
+	ZXing::BarcodeFormat::Code39,
+	ZXing::BarcodeFormat::Code93,
+	ZXing::BarcodeFormat::Code128,
+	ZXing::BarcodeFormat::DataBar,
+	ZXing::BarcodeFormat::DataBarExpanded,
+	ZXing::BarcodeFormat::DataMatrix,
+	ZXing::BarcodeFormat::EAN8,
+	ZXing::BarcodeFormat::EAN13,
+	ZXing::BarcodeFormat::ITF,
+	ZXing::BarcodeFormat::MaxiCode,
+	ZXing::BarcodeFormat::PDF417,
+	ZXing::BarcodeFormat::QRCode,
+	ZXing::BarcodeFormat::UPCA,
+	ZXing::BarcodeFormat::UPCE,
+	ZXing::BarcodeFormat::MicroQRCode,
+	ZXing::BarcodeFormat::RMQRCode,
+	ZXing::BarcodeFormat::LinearCodes,
+	ZXing::BarcodeFormat::MatrixCodes,
+	ZXing::BarcodeFormat::Any
+};
+
+inline Napi::Object BindBarcodeFormat(Napi::Env env) {
+  Napi::Object format = Napi::Object::New(env);
+
+  std::for_each(formats, formats + sizeof(formats) / sizeof(formats[0]), [=](ZXing::BarcodeFormat fmt) {
+    Napi::Number value = Napi::Number::New(env, static_cast<std::underlying_type_t<ZXing::BarcodeFormat>>(fmt));
+    std::string fmt_name =
+      fmt == ZXing::BarcodeFormat::Any
+        ? std::string("Any")
+        : fmt == ZXing::BarcodeFormat::RMQRCode
+          ? std::string("RMQRCode")
+          : ZXing::ToString(fmt);
+    fmt_name.erase(std::remove_if(fmt_name.begin(), fmt_name.end(), [](char c) { return c == '-'; }), fmt_name.end());
+    Napi::String name = Napi::String::New(env, fmt_name);
+    format[format[name] = value] = name;
+  });
+
+  return format;
+}
+
+Napi::Value JsFormatToString(const Napi::CallbackInfo& info) {
+  if (info.Length() == 0) return Napi::String::New(info.Env(), "");
+  ZXing::BarcodeFormat fmt = static_cast<ZXing::BarcodeFormat>(info[0].As<Napi::Number>().Int32Value());
+  return Napi::String::New(info.Env(), ZXing::ToString(fmt));
+}
+
 }  // namespace zxingwasm
 
 namespace {
@@ -149,6 +198,9 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     zxingwasm::JsReadFromRawImage, "readFromRawImage");
   exports["generateMatrix"] = Napi::Function::New(env,
     zxingwasm::JsGenerateMatrix, "generateMatrix");
+  exports["BarcodeFormat"] = zxingwasm::BindBarcodeFormat(env);
+  exports["barcodeFormatToString"] = Napi::Function::New(env,
+    zxingwasm::JsFormatToString, "barcodeFormatToString");
   return exports;
 }
 

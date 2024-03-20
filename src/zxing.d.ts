@@ -1,3 +1,31 @@
+export declare enum BarcodeFormat {
+	None            = 0,
+	Aztec           = (1 << 0),
+	Codabar         = (1 << 1),
+	Code39          = (1 << 2),
+	Code93          = (1 << 3),
+	Code128         = (1 << 4),
+	DataBar         = (1 << 5),
+	DataBarExpanded = (1 << 6),
+	DataMatrix      = (1 << 7),
+	EAN8            = (1 << 8),
+	EAN13           = (1 << 9),
+	ITF             = (1 << 10),
+	MaxiCode        = (1 << 11),
+	PDF417          = (1 << 12),
+	QRCode          = (1 << 13),
+	UPCA            = (1 << 14),
+	UPCE            = (1 << 15),
+	MicroQRCode     = (1 << 16),
+	RMQRCode        = (1 << 17),
+
+	LinearCodes = Codabar | Code39 | Code93 | Code128 | EAN8 | EAN13 | ITF | DataBar | DataBarExpanded | UPCA | UPCE,
+	MatrixCodes = Aztec | DataMatrix | MaxiCode | PDF417 | QRCode | MicroQRCode | RMQRCode,
+	Any         = LinearCodes | MatrixCodes,
+};
+
+export declare function barcodeFormatToString (format: BarcodeFormat): string
+
 export declare type Format = 
   "None" |
   "Aztec" |
@@ -27,7 +55,7 @@ export declare interface Point {
 export declare type Position = [Point, Point, Point, Point]
 
 export declare interface ReadResult {
-  format: Format
+  format: BarcodeFormat
   text: string
   error: string
   position: Position | null
@@ -115,7 +143,7 @@ export declare interface Matrix {
 
 export declare function generateMatrix (
   text: string,
-  format: Format,
+  format: BarcodeFormat,
   encoding: Charset,
   margin: number,
   width: number,
