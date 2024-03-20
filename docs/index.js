@@ -46,6 +46,7 @@ class FileInput extends Component {
     const fileInput = this._input = document.createElement('input')
     fileInput.id = 'imageInput'
     const selectImageButton = document.createElement('button')
+    selectImageButton.style.fontSize = '32px'
     selectImageButton.setAttribute('disabled', '')
     Module.then(() => { selectImageButton.removeAttribute('disabled') })
     label.htmlFor = fileInput.id
@@ -58,6 +59,8 @@ class FileInput extends Component {
     })
 
     const recordButton = document.createElement('button')
+    recordButton.style.fontSize = '32px'
+    recordButton.style.marginLeft = '32px'
     recordButton.innerText = 'Start Capture'
     recordButton.setAttribute('disabled', '')
     Module.then(() => { recordButton.removeAttribute('disabled') })
@@ -191,6 +194,7 @@ class ConfirmButton extends Component {
     this.onDidClick = this._clickEvent.event
     // this.domNode = document.createElement('div')
     this.domNode = document.createElement('button')
+    this.domNode.style.fontSize = '24px'
     this.domNode.setAttribute('disabled', '')
     Module.then(() => { this.domNode.removeAttribute('disabled') })
     this.domNode.innerHTML = 'Generate'
@@ -391,17 +395,55 @@ class EncodeWidget extends Component {
 
     const inputWrap = document.createElement('div')
     this.domNode.appendChild(inputWrap)
+
+    const formatSelectWrap = document.createElement('div')
+    formatSelectWrap.style.marginBottom = '16px'
+    const formatSelect = document.createElement('select')
+    formatSelect.style.fontSize = '32px'
+    formatSelectWrap.appendChild(formatSelect)
+    
+    Module.then(() => {
+      [
+        Module.emnapiExports.BarcodeFormat.Aztec,
+        Module.emnapiExports.BarcodeFormat.DataMatrix,
+        Module.emnapiExports.BarcodeFormat.PDF417,
+        Module.emnapiExports.BarcodeFormat.QRCode,
+        Module.emnapiExports.BarcodeFormat.Codabar,
+        Module.emnapiExports.BarcodeFormat.Code39,
+        Module.emnapiExports.BarcodeFormat.Code93,
+        Module.emnapiExports.BarcodeFormat.Code128,
+        // Module.emnapiExports.BarcodeFormat.EAN8,
+        // Module.emnapiExports.BarcodeFormat.EAN13,
+        Module.emnapiExports.BarcodeFormat.ITF,
+        // Module.emnapiExports.BarcodeFormat.UPCA,
+        // Module.emnapiExports.BarcodeFormat.UPCE,
+      ].map(value => {
+        return { label: Module.emnapiExports.barcodeFormatToString(value), value }
+      }).forEach((item) => {
+        const optionEl = document.createElement('option')
+        optionEl.value = String(item.value)
+        optionEl.text = item.label
+        formatSelect.appendChild(optionEl)
+      })
+
+      formatSelect.value = String(Module.emnapiExports.BarcodeFormat.QRCode)
+    })
+    inputWrap.appendChild(formatSelectWrap)
+
     this._textInput = this._register(new TextInput(inputWrap))
     this._genButton = this._register(new ConfirmButton(inputWrap))
 
     this._resultCanvas = this._register(new ResultCanvas(this.domNode))
 
     this._register(this._genButton.onDidClick(() => {
+      if (!this._textInput.value) {
+        return
+      }
       const canvas = this._resultCanvas.canvas
       let matrix
-      const format = Module.emnapiExports.BarcodeFormat.QRCode
+      const format = Number(formatSelect.value)
       try {
-        matrix = Module.emnapiExports.generateMatrix(this._textInput.value, format, 'UTF-8', 10, canvas.width, canvas.height, -1)
+        matrix = Module.emnapiExports.generateMatrix(this._textInput.value, format, 'UTF-8', 10, 400, 400, -1)
       } catch (err) {
         console.error(err)
         window.alert(err.message)
@@ -409,12 +451,17 @@ class EncodeWidget extends Component {
       }
       const dataPtr = matrix.getDataAddress()
       const dataSize = matrix.getDataSize()
-      console.log(matrix.getWidth(), matrix.getHeight(), dataPtr, dataSize)
+      const matrixWidth = matrix.getWidth()
+      const matrixHeight = matrix.getHeight()
+      canvas.width = matrixWidth
+      canvas.height = matrixHeight
+      console.log(matrixWidth, matrixHeight, dataPtr, dataSize)
       // const buffer = matrix.getBuffer()
       const buffer = new Uint8Array(Module.HEAPU8.buffer, dataPtr, dataSize)
       const ctx = canvas.getContext('2d')
-      const imageData = ctx.createImageData(canvas.width, canvas.height)
-      const pixelSize = canvas.width * canvas.height
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      const imageData = ctx.createImageData(matrixWidth, matrixHeight)
+      const pixelSize = matrixWidth * matrixHeight
       for (let i = 0; i < pixelSize; i++) {
         imageData.data.set([buffer[i], buffer[i], buffer[i], 255], i * 4)
       }
